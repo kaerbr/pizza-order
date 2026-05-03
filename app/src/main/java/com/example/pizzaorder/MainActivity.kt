@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -18,6 +19,9 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -57,11 +61,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PizzaTheme {
+            //PizzaTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     App(vm)
                 }
-            }
+            //}
         }
     }
 }
@@ -70,6 +74,11 @@ class MainActivity : ComponentActivity() {
 fun App(vm: AppViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+
+    // Theme override. Initialized from the system, then toggled manually.
+    // Not persisted — restart returns to system default, by design.
+    val systemDark = isSystemInDarkTheme()
+    var darkTheme by remember(systemDark) { mutableStateOf(systemDark) }
 
     val btLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -96,22 +105,26 @@ fun App(vm: AppViewModel) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
-    if (showSettings) {
-        BackHandler { showSettings = false }
-        SettingsScaffold(
-            vm = vm,
-            state = state,
-            snackbar = snackbar,
-            onClose = { showSettings = false },
-        )
-    } else {
-        MainScaffold(
-            state = state,
-            snackbar = snackbar,
-            pagerState = pagerState,
-            onOpenSettings = { showSettings = true },
-            vm = vm,
-        )
+    PizzaTheme(darkTheme = darkTheme) {
+        if (showSettings) {
+            BackHandler { showSettings = false }
+            SettingsScaffold(
+                vm = vm,
+                state = state,
+                snackbar = snackbar,
+                onClose = { showSettings = false },
+            )
+        } else {
+            MainScaffold(
+                state = state,
+                snackbar = snackbar,
+                pagerState = pagerState,
+                onOpenSettings = { showSettings = true },
+                onToggleTheme = { darkTheme = !darkTheme },
+                isDark = darkTheme,
+                vm = vm,
+            )
+        }
     }
 }
 
@@ -122,6 +135,8 @@ private fun MainScaffold(
     snackbar: SnackbarHostState,
     pagerState: PagerState,
     onOpenSettings: () -> Unit,
+    onToggleTheme: () -> Unit,
+    isDark: Boolean,
     vm: AppViewModel,
 ) {
     val scope = rememberCoroutineScope()
@@ -132,9 +147,15 @@ private fun MainScaffold(
             TopAppBar(
                 title = { Text("🍕  Pizza Party", fontWeight = FontWeight.Bold) },
                 actions = {
+                    IconButton(onClick = onToggleTheme) {
+                        Icon(
+                            imageVector = if (isDark) Icons.Default.FavoriteBorder else Icons.Default.Favorite,
+                            contentDescription = if (isDark) "Lightmode" else "Darkmode",
+                        )
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Icon(
-                            Icons.Default.Settings,
+                            Icons.Default.Edit,
                             contentDescription = "Einstellungen",
                         )
                     }
