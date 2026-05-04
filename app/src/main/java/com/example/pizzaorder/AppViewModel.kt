@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.serializer
 
 data class AppState(
     val orders: List<Order> = emptyList(),
@@ -18,8 +20,8 @@ data class AppState(
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val orderRepo = OrderRepo(application)
-    private val menuRepo  = MenuRepo(application)
+    private val orderRepo = JsonStore(application, "orders.json", ListSerializer(Order.serializer()), emptyList())
+    private val menuRepo  = JsonStore(application, "menu.json", MenuConfig.serializer(), MenuConfig.DEFAULT, pretty = true)
     private val printer   = Printer(application)
 
     private val _state = MutableStateFlow(AppState())
@@ -43,6 +45,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun runPrint(order: Order, successMsg: String) = viewModelScope.launch {
+        printer.printOrder(order)
+            .onSuccess { updateMessage(successMsg) }
+            .onFailure { e -> updateMessage("Druck fehlgeschlagen: ${e.message}") }
+    }
+
     // ─── Orders ─────────────────────────────────────────────────────────────
 
     fun submitOrder(customer: String, pizza: Pizza, note: String) {
@@ -56,19 +64,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             message = "Bestellung für $cleanCustomer aufgenommen..."
         ) }
 
-        viewModelScope.launch {
-            orderRepo.save(_state.value.orders)
-            printer.printOrder(order)
-                .onSuccess { updateMessage("Bestellung für $cleanCustomer gedruckt.") }
-                .onFailure { e -> updateMessage("Druck fehlgeschlagen: ${e.message}") }
-        }
+        viewModelScope.launch { orderRepo.save(_state.value.orders) }
+        runPrint(order, "Bestellung für $cleanCustomer gedruckt.")
     }
 
-    fun reprint(order: Order) = viewModelScope.launch {
-        printer.printOrder(order)
-            .onSuccess { updateMessage("Erneut gedruckt: ${order.customer}.") }
-            .onFailure { e -> updateMessage("Druck fehlgeschlagen: ${e.message}") }
-    }
+    fun reprint(order: Order) = runPrint(order, "Erneut gedruckt: ${order.customer}.")
 
     fun toggleDone(order: Order) {
         _state.update { s ->
@@ -89,9 +89,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // ─── Menu ───────────────────────────────────────────────────────────────
 
-    fun addSauce(name: String) = name.trim().takeIf { it.isNotEmpty() }?.let { clean ->
-        if (clean in _state.value.menu.sauces) updateMessage("Sauce $clean gibt es schon.")
-        else updateMenu { it.copy(sauces = it.sauces + clean) }
+    private fun addUniqueItem(name: String, current: List<String>, type: String, onAdd: () -> Unit) {
+        val clean = name.trim()
+        if (clean.isEmpty()) return
+        if (clean in current) updateMessage("$type $clean gibt es schon.")
+        else onAdd()
+    }
+
+    fun addSauce(name: String) = addUniqueItem(name, _state.value.menu.sauces, "Sauce") {
+        updateMenu { it.copy(sauces = it.sauces + name.trim()) }
     }
 
     fun removeSauce(name: String) = updateMenu { m ->
@@ -108,9 +114,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addTopping(name: String) = name.trim().takeIf { it.isNotEmpty() }?.let { clean ->
-        if (clean in _state.value.menu.toppings) updateMessage("Belag $clean gibt es schon.")
-        else updateMenu { it.copy(toppings = it.toppings + clean) }
+    fun addTopping(name: String) = addUniqueItem(name, _state.value.menu.toppings, "Belag") {
+        updateMenu { it.copy(toppings = it.toppings + name.trim()) }
     }
 
     fun removeTopping(name: String) = updateMenu { m ->
@@ -120,10 +125,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    fun addPreset(pizza: Pizza) = pizza.copy(name = pizza.name.trim()).takeIf { it.name.isNotEmpty() }?.let { clean ->
-        if (_state.value.menu.presets.any { it.name.equals(clean.name, ignoreCase = true) }) {
-            updateMessage("Pizza ${clean.name} gibt es schon.")
-        } else updateMenu { it.copy(presets = it.presets + clean) }
+    fun addPreset(pizza: Pizza) {
+        val cleanName = pizza.name.trim()
+        if (cleanName.isEmpty()) return
+        if (_state.value.menu.presets.any { it.name.equals(cleanName, ignoreCase = true) }) {
+            updateMessage("Pizza $cleanName gibt es schon.")
+        } else updateMenu { it.copy(presets = it.presets + pizza.copy(name = cleanName)) }
     }
 
     fun removePreset(name: String) = updateMenu { it.copy(presets = it.presets.filter { p -> p.name != name }) }

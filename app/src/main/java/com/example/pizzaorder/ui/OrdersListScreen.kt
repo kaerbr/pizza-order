@@ -92,9 +92,6 @@ private fun OrderCard(
     onReprint: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val time = remember(order.id) { SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(order.id)) }
-    val toppings = order.pizza.toppings.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "—"
-
     Card(
         onClick = onToggleDone,
         modifier = modifier.fillMaxWidth(),
@@ -111,10 +108,10 @@ private fun OrderCard(
             Column(Modifier.weight(1f)) {
                 Row {
                     Text(order.customer, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text(time, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(order.formattedTime, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text(order.pizza.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                Text("${order.pizza.sauce} · $toppings", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(order.pizza.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (order.note.isNotBlank()) {
                     Text("„${order.note}“", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, modifier = Modifier.padding(top = 4.dp))
                 }

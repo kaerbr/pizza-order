@@ -245,9 +245,6 @@ private fun AddRow(placeholder: String, onAdd: (String) -> Unit) {
 
 @Composable
 private fun PresetRow(preset: Pizza, onRemove: () -> Unit) {
-    val toppingDesc = if (preset.toppings.isEmpty()) "—"
-                      else preset.toppings.joinToString(", ")
-
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -267,7 +264,7 @@ private fun PresetRow(preset: Pizza, onRemove: () -> Unit) {
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    "${preset.sauce} · $toppingDesc",
+                    preset.description,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 )

@@ -73,16 +73,8 @@ class Printer(private val context: Context) {
      *   \n is mandatory between logical lines
      */
     private fun formatTicket(order: Order): String {
-        val time = TIME_FMT.format(Date(order.id))
-
-        val toppingLines = if (order.pizza.toppings.isEmpty()) {
-            "[L]  (keine)\n"
-        } else {
-            order.pizza.toppings.joinToString("") { "[L]  - $it\n" }
-        }
-
-        val noteBlock = if (order.note.isBlank()) "" else
-            "[L]\n[L]<b>Notiz:</b>\n[L]  ${order.note}\n"
+        val toppingLines = order.pizza.toppings.joinToString("") { "[L]  - $it\n" }.ifEmpty { "[L]  (keine)\n" }
+        val noteBlock = order.note.takeIf { it.isNotBlank() }?.let { "[L]\n[L]<b>Notiz:</b>\n[L]  $it\n" }.orEmpty()
 
         return """
             [C]<u><font size='big'>PIZZA</font></u>
@@ -98,7 +90,7 @@ class Printer(private val context: Context) {
             $toppingLines
             $noteBlock
             [L]
-            [R]$time
+            [R]${order.formattedTime}
             [L]
             [C]================================
         """.trimIndent()

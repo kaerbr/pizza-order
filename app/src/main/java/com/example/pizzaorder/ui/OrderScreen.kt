@@ -32,13 +32,12 @@ fun OrderScreen(
 ) {
     val firstPreset = menu.presets.firstOrNull()
     var customer by rememberSaveable { mutableStateOf("") }
-    var pizzaName by rememberSaveable { mutableStateOf(firstPreset?.name ?: CUSTOM_NAME) }
     var sauce by rememberSaveable { mutableStateOf(firstPreset?.sauce ?: menu.sauces.firstOrNull().orEmpty()) }
     var toppings by rememberSaveable { mutableStateOf(firstPreset?.toppings ?: emptyList()) }
     var note by rememberSaveable { mutableStateOf("") }
 
-    fun recomputeName() {
-        pizzaName = menu.presets.find { it.sauce == sauce && it.toppings.toSet() == toppings.toSet() }?.name ?: CUSTOM_NAME
+    val pizzaName = remember(sauce, toppings) {
+        menu.presets.find { it.sauce == sauce && it.toppings.toSet() == toppings.toSet() }?.name ?: CUSTOM_NAME
     }
 
     Column(
@@ -71,10 +70,10 @@ fun OrderScreen(
         ) {
             menu.presets.forEach { p ->
                 PizzaTile(p.name, pizzaName == p.name) {
-                    pizzaName = p.name; sauce = p.sauce; toppings = p.toppings
+                    sauce = p.sauce; toppings = p.toppings
                 }
             }
-            PizzaTile(CUSTOM_NAME, pizzaName == CUSTOM_NAME, Icons.Default.Add) { pizzaName = CUSTOM_NAME }
+            PizzaTile(CUSTOM_NAME, pizzaName == CUSTOM_NAME, Icons.Default.Add) { /* pizzaName updates via sauce/toppings */ }
         }
 
         SectionHeader("Sauce")
@@ -82,7 +81,7 @@ fun OrderScreen(
             menu.sauces.forEach { s ->
                 FilterChip(
                     selected = s == sauce,
-                    onClick = { sauce = s; recomputeName() },
+                    onClick = { sauce = s },
                     label = { Text(s) },
                 )
             }
@@ -99,7 +98,6 @@ fun OrderScreen(
                     selected = t in toppings,
                     onClick = {
                         toppings = if (t in toppings) toppings - t else toppings + t
-                        recomputeName()
                     },
                     label = { Text(t) },
                 )
@@ -121,7 +119,7 @@ fun OrderScreen(
                 onSubmit(customer, Pizza(pizzaName, sauce, toppings), note)
                 customer = ""; note = ""
                 menu.presets.firstOrNull()?.let { p ->
-                    pizzaName = p.name; sauce = p.sauce; toppings = p.toppings
+                    sauce = p.sauce; toppings = p.toppings
                 }
             },
             enabled = customer.isNotBlank() && sauce.isNotBlank(),
