@@ -30,11 +30,12 @@ fun OrderScreen(
     onSubmit: (customer: String, pizza: Pizza, note: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val firstPreset = menu.presets.firstOrNull()
     var customer by rememberSaveable { mutableStateOf("") }
+    var note by rememberSaveable { mutableStateOf("") }
+    
+    val firstPreset = menu.presets.firstOrNull()
     var sauce by rememberSaveable { mutableStateOf(firstPreset?.sauce ?: menu.sauces.firstOrNull().orEmpty()) }
     var toppings by rememberSaveable { mutableStateOf(firstPreset?.toppings ?: emptyList()) }
-    var note by rememberSaveable { mutableStateOf("") }
 
     val pizzaName = remember(sauce, toppings) {
         menu.presets.find { it.sauce == sauce && it.toppings.toSet() == toppings.toSet() }?.name ?: CUSTOM_NAME
@@ -73,7 +74,7 @@ fun OrderScreen(
                     sauce = p.sauce; toppings = p.toppings
                 }
             }
-            PizzaTile(CUSTOM_NAME, pizzaName == CUSTOM_NAME, Icons.Default.Add) { /* pizzaName updates via sauce/toppings */ }
+            PizzaTile(CUSTOM_NAME, pizzaName == CUSTOM_NAME, Icons.Default.Add) { /* updates via derived name */ }
         }
 
         SectionHeader("Sauce")

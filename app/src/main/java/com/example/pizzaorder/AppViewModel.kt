@@ -89,51 +89,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // ─── Menu ───────────────────────────────────────────────────────────────
 
-    private fun addUniqueItem(name: String, current: List<String>, type: String, onAdd: () -> Unit) {
-        val clean = name.trim()
-        if (clean.isEmpty()) return
-        if (clean in current) updateMessage("$type $clean gibt es schon.")
-        else onAdd()
-    }
-
-    fun addSauce(name: String) = addUniqueItem(name, _state.value.menu.sauces, "Sauce") {
-        updateMenu { it.copy(sauces = it.sauces + name.trim()) }
+    fun addSauce(name: String) = name.trim().takeIf { it.isNotEmpty() }?.let { clean ->
+        if (clean in _state.value.menu.sauces) updateMessage("Sauce $clean gibt es schon.")
+        else updateMenu { it.withSauce(clean) }
     }
 
     fun removeSauce(name: String) = updateMenu { m ->
-        val nextSauces = m.sauces - name
-        if (nextSauces.isEmpty()) {
-            updateMessage("Mindestens eine Sauce muss bleiben.")
-            m
-        } else {
-            val fallback = nextSauces.first()
-            m.copy(
-                sauces = nextSauces,
-                presets = m.presets.map { if (it.sauce == name) it.copy(sauce = fallback) else it }
-            )
-        }
+        if (m.sauces.size <= 1) { updateMessage("Mindestens eine Sauce muss bleiben."); m }
+        else m.withoutSauce(name)
     }
 
-    fun addTopping(name: String) = addUniqueItem(name, _state.value.menu.toppings, "Belag") {
-        updateMenu { it.copy(toppings = it.toppings + name.trim()) }
+    fun addTopping(name: String) = name.trim().takeIf { it.isNotEmpty() }?.let { clean ->
+        if (clean in _state.value.menu.toppings) updateMessage("Belag $clean gibt es schon.")
+        else updateMenu { it.withTopping(clean) }
     }
 
-    fun removeTopping(name: String) = updateMenu { m ->
-        m.copy(
-            toppings = m.toppings - name,
-            presets = m.presets.map { it.copy(toppings = it.toppings - name) }
-        )
-    }
+    fun removeTopping(name: String) = updateMenu { it.withoutTopping(name) }
 
     fun addPreset(pizza: Pizza) {
-        val cleanName = pizza.name.trim()
-        if (cleanName.isEmpty()) return
-        if (_state.value.menu.presets.any { it.name.equals(cleanName, ignoreCase = true) }) {
-            updateMessage("Pizza $cleanName gibt es schon.")
-        } else updateMenu { it.copy(presets = it.presets + pizza.copy(name = cleanName)) }
+        val clean = pizza.name.trim()
+        if (clean.isEmpty()) return
+        if (_state.value.menu.presets.any { it.name.equals(clean, ignoreCase = true) }) {
+            updateMessage("Pizza $clean gibt es schon.")
+        } else updateMenu { it.withPreset(pizza.copy(name = clean)) }
     }
 
-    fun removePreset(name: String) = updateMenu { it.copy(presets = it.presets.filter { p -> p.name != name }) }
+    fun removePreset(name: String) = updateMenu { it.withoutPreset(name) }
 
     fun resetMenu() {
         val newMenu = MenuConfig.DEFAULT

@@ -18,38 +18,50 @@ data class MenuConfig(
     val toppings: List<String>,
     val presets: List<Pizza>,
 ) {
+    fun withSauce(name: String) = copy(sauces = sauces + name)
+    fun withoutSauce(name: String): MenuConfig {
+        val next = sauces - name
+        val fallback = next.firstOrNull() ?: ""
+        return copy(
+            sauces = next,
+            presets = presets.map { if (it.sauce == name) it.copy(sauce = fallback) else it }
+        )
+    }
+
+    fun withTopping(name: String) = copy(toppings = toppings + name)
+    fun withoutTopping(name: String) = copy(
+        toppings = toppings - name,
+        presets = presets.map { it.copy(toppings = it.toppings - name) }
+    )
+
+    fun withPreset(pizza: Pizza) = copy(presets = presets + pizza)
+    fun withoutPreset(name: String) = copy(presets = presets.filter { it.name != name })
+
     companion object {
         val DEFAULT = MenuConfig(
             sauces = listOf(
                 "Tomate",
-                "Crème fraîche",
-                "BBQ",
+                //"Crème fraîche",
+                //"BBQ",
             ),
             toppings = listOf(
-                "Mozzarella",
+                "Zwiebeln",
+                "Knoblauch",
                 "Salami",
-                "Schinken",
+                "Mozzarella",
+                "Käse",
                 "Champignons",
                 "Paprika",
-                "Zwiebeln",
                 "Oliven",
                 "Ananas",
                 "Rucola",
-                "Thunfisch",
-                "Ei",
                 "Peperoni",
             ),
             presets = listOf(
-                Pizza("Margherita",       "Tomate", listOf("Mozzarella")),
-                Pizza("Salami",           "Tomate", listOf("Mozzarella", "Salami")),
-                Pizza("Prosciutto",       "Tomate", listOf("Mozzarella", "Schinken")),
-                Pizza("Funghi",           "Tomate", listOf("Mozzarella", "Champignons")),
-                Pizza("Hawaii",           "Tomate", listOf("Mozzarella", "Schinken", "Ananas")),
-                Pizza("Tonno",            "Tomate", listOf("Mozzarella", "Thunfisch", "Zwiebeln")),
-                Pizza("Diavola",          "Tomate", listOf("Mozzarella", "Salami", "Peperoni")),
-                Pizza("Quattro Formaggi", "Tomate", listOf("Mozzarella")),
-                Pizza("Vegetariana",      "Tomate", listOf("Mozzarella", "Paprika", "Champignons", "Zwiebeln", "Oliven")),
-                Pizza("Bianca",           "Crème fraîche", listOf("Mozzarella", "Schinken", "Rucola")),
+                Pizza("Margherita",       "Tomate", listOf("Käse")),
+                Pizza("Salami",           "Tomate", listOf("Salami", "Käse")),
+                Pizza("Funghi",           "Tomate", listOf("Champignons", "Käse")),
+                Pizza("Vegetariana",      "Tomate", listOf("Paprika", "Champignons", "Zwiebeln", "Oliven", "Käse")),
             ),
         )
     }
