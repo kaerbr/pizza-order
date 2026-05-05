@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.example.pizzaorder.MenuConfig
 import com.example.pizzaorder.Pizza
 
-private const val CUSTOM_NAME = "Eigene"
+private const val CUSTOM_NAME = "Eigenkreation"
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -78,30 +78,34 @@ fun OrderScreen(
         }
 
         SectionHeader("Sauce")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            menu.sauces.forEach { s ->
-                FilterChip(
-                    selected = s == sauce,
-                    onClick = { sauce = s },
-                    label = { Text(s) },
-                )
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                menu.sauces.forEach { s ->
+                    FilterChip(
+                        selected = s == sauce,
+                        onClick = { sauce = s },
+                        label = { Text(s) },
+                    )
+                }
             }
         }
 
         SectionHeader("Belag")
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            menu.toppings.forEach { t ->
-                FilterChip(
-                    selected = t in toppings,
-                    onClick = {
-                        toppings = if (t in toppings) toppings - t else toppings + t
-                    },
-                    label = { Text(t) },
-                )
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                menu.toppings.forEach { t ->
+                    FilterChip(
+                        selected = t in toppings,
+                        onClick = {
+                            toppings = if (t in toppings) toppings - t else toppings + t
+                        },
+                        label = { Text(t) },
+                    )
+                }
             }
         }
 
