@@ -65,38 +65,26 @@ class Printer(private val context: Context) {
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    /**
-     * Builds the receipt body. DantSu syntax:
-     *   [L] [C] [R] alignment per line
-     *   <b>bold</b>, <u>underline</u>
-     *   <font size='big'|'tall'|'wide'|'normal'>...</font>
-     *   \n is mandatory between logical lines
-     */
-    private fun formatTicket(order: Order): String {
-        val toppingLines = order.pizza.toppings.joinToString("") { "[L]  - $it\n" }.ifEmpty { "[L]  (keine)\n" }
-        val noteBlock = order.note.takeIf { it.isNotBlank() }?.let { "[L]\n[L]<b>Notiz:</b>\n[L]  $it\n" }.orEmpty()
-
-        return """
-            [C]<u><font size='big'>PIZZA</font></u>
-            [L]
-            [C]<font size='big'>${order.customer}</font>
-            [L]
-            [C]================================
-            [L]
-            [L]<b><font size='tall'>${order.pizza.name}</font></b>
-            [L]
-            [L]Sauce: ${order.pizza.sauce}
-            [L]Belag:
-            $toppingLines
-            $noteBlock
-            [L]
-            [R]${order.formattedTime}
-            [L]
-            [C]================================
-        """.trimIndent()
-    }
-
-    companion object {
-        private val TIME_FMT = SimpleDateFormat("HH:mm", Locale.GERMAN)
-    }
+    private fun formatTicket(order: Order) = """
+            |[C]<u><font size='big'>PIZZA</font></u>
+            |[L]
+            |[C]<b>${order.customer}</b>
+            |[L]
+            |[C]================================
+            |[L]
+            |[L]<b>${order.pizza.name}</b>
+            |[L]
+            |[L]Sauce: ${order.pizza.sauce}
+            |[L]Belag:
+            |${order.pizza.toppings.joinToString("\n") { "[L]  - $it" }.ifEmpty { "[L]  (keine)" }}
+            |${order.note.takeIf(String::isNotBlank)?.let { "[L]\n[L]<b>Notiz:</b>\n[L]  $it" }?: ""}
+            |[L]
+            |[R]${order.formattedTime}
+            |[L]
+            |[C]================================
+            |[L]
+            |[L]
+            |[L]
+            |[L]
+        """.trimMargin()
 }
