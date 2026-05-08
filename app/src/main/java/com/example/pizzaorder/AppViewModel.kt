@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.serializer
 
 data class AppState(
     val orders: List<Order> = emptyList(),

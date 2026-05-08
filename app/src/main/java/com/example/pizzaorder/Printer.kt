@@ -10,9 +10,6 @@ import com.dantsu.escposprinter.EscPosPrinter
 import com.dantsu.escposprinter.connection.bluetooth.BluetoothPrintersConnections
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Thin wrapper around DantSu's ESC/POS library.
@@ -60,31 +57,26 @@ class Printer(private val context: Context) {
 
     private fun hasBluetoothPermission(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
-        return ContextCompat.checkSelfPermission(
-            context, Manifest.permission.BLUETOOTH_CONNECT,
-        ) == PackageManager.PERMISSION_GRANTED
+        return ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun formatTicket(order: Order) = """
-            |[C]<u><font size='big'>PIZZA</font></u>
-            |[L]
-            |[C]<b>${order.customer}</b>
-            |[L]
-            |[C]================================
-            |[L]
-            |[L]<b>${order.pizza.name}</b>
-            |[L]
-            |[L]Sauce: ${order.pizza.sauce}
-            |[L]Belag:
-            |${order.pizza.toppings.joinToString("\n") { "[L]  - $it" }.ifEmpty { "[L]  (keine)" }}
-            |${order.note.takeIf(String::isNotBlank)?.let { "[L]\n[L]<b>Notiz:</b>\n[L]  $it" }?: ""}
-            |[L]
-            |[R]${order.formattedTime}
-            |[L]
-            |[C]================================
-            |[L]
-            |[L]
-            |[L]
-            |[L]
-        """.trimMargin()
+        |[C]================================
+        |[C]ORDINE PER: <b>${order.customer}</b>
+        |[C]================================
+        |[L]MODELLO: <b>${order.pizza.name}</b>
+        |[L]
+        |[L]SAUCE: ${order.pizza.sauce}
+        |[L]INGREDIENTI:
+        |${order.pizza.toppings.joinToString("\n") { "[L]  > $it" }.ifEmpty { "[L]  > (keine)" }}
+        |${order.note.takeIf(String::isNotBlank)?.let { "[L]\n[L]<b>NOTA BENE:</b>\n[L]  $it" } ?: ""}
+        |[C]--------------------------------
+        |[L]            ( )  ( )  ( )
+        |[L]             )    )    )
+        |[L]         _______________
+        |[L]        \_______________/
+        |[L]
+        |[L]
+        |[L]
+    """.trimMargin()
 }

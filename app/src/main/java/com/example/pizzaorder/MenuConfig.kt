@@ -41,8 +41,6 @@ data class MenuConfig(
         val DEFAULT = MenuConfig(
             sauces = listOf(
                 "Tomate",
-                //"Crème fraîche",
-                //"BBQ",
             ),
             toppings = listOf(
                 "Zwiebeln",
@@ -50,18 +48,17 @@ data class MenuConfig(
                 "Salami",
                 "Mozzarella",
                 "Käse",
-                "Champignons",
-                "Paprika",
                 "Oliven",
-                "Ananas",
                 "Rucola",
-                "Peperoni",
+                "Artischocken",
+                "Basilikum",
             ),
             presets = listOf(
+                Pizza("Speciale",         "Tomate", listOf("Zwiebeln", "Knoblauch", "Rucola")),
                 Pizza("Margherita",       "Tomate", listOf("Käse")),
+                Pizza("Neapolitana",      "Tomate", listOf("Mozarella", "Basilikum")),
                 Pizza("Salami",           "Tomate", listOf("Salami", "Käse")),
-                Pizza("Funghi",           "Tomate", listOf("Champignons", "Käse")),
-                Pizza("Vegetariana",      "Tomate", listOf("Paprika", "Champignons", "Zwiebeln", "Oliven", "Käse")),
+                Pizza("Vegetariana",      "Tomate", listOf("Paprika", "Zwiebeln", "Oliven", "Artischocken", "Käse")),
             ),
         )
     }
