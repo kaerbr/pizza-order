@@ -6,12 +6,18 @@ import java.util.Date
 import java.util.Locale
 
 @Serializable
+data class Sauce(val name: String)
+
+@Serializable
+data class Topping(val name: String)
+
+@Serializable
 data class Pizza(
     val name: String,
-    val sauce: String,
-    val toppings: List<String>,
+    val sauce: Sauce,
+    val toppings: LinkedHashSet<Topping>,
 ) {
-    val description: String get() = "$sauce · ${toppings.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "—"}"
+    val description: String get() = "${sauce.name} · ${toppings.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name } ?: "—"}"
 }
 
 @Serializable

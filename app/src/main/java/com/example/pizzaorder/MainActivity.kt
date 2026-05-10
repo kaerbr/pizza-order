@@ -273,13 +273,13 @@ private fun SettingsScaffold(
     ) { padding ->
         SettingsScreen(
             menu = state.menu,
-            onAddSauce      = vm::addSauce,
-            onRemoveSauce   = vm::removeSauce,
-            onAddTopping    = vm::addTopping,
-            onRemoveTopping = vm::removeTopping,
-            onAddPreset     = vm::addPreset,
-            onRemovePreset  = vm::removePreset,
-            onResetMenu     = vm::resetMenu,
+            onAddSauce       = vm::addSauce,
+            onRemoveSauce    = vm::removeSauce,
+            onAddTopping     = vm::addTopping,
+            onRemoveTopping  = vm::removeTopping,
+            onAddPreset      = vm::addPreset,
+            onRemovePreset   = vm::removePreset,
+            onResetMenu      = vm::resetMenu,
             modifier = Modifier.padding(padding).fillMaxSize(),
         )
     }

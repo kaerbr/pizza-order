@@ -49,15 +49,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.pizzaorder.MenuConfig
 import com.example.pizzaorder.Pizza
+import com.example.pizzaorder.Sauce
+import com.example.pizzaorder.Topping
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     menu: MenuConfig,
     onAddSauce: (String) -> Unit,
-    onRemoveSauce: (String) -> Unit,
+    onRemoveSauce: (Sauce) -> Unit,
     onAddTopping: (String) -> Unit,
-    onRemoveTopping: (String) -> Unit,
+    onRemoveTopping: (Topping) -> Unit,
     onAddPreset: (Pizza) -> Unit,
     onRemovePreset: (String) -> Unit,
     onResetMenu: () -> Unit,
@@ -107,12 +109,12 @@ fun SettingsScreen(
         ) {
 
             Section(title = "Saucen") {
-                ChipList(items = menu.sauces, onRemove = onRemoveSauce)
+                ChipList(items = menu.sauces.toList(), onRemove = onRemoveSauce, labelProvider = { it.name })
                 AddRow(placeholder = "Neue Sauce", onAdd = onAddSauce)
             }
 
             Section(title = "Beläge") {
-                ChipList(items = menu.toppings, onRemove = onRemoveTopping)
+                ChipList(items = menu.toppings.toList(), onRemove = onRemoveTopping, labelProvider = { it.name })
                 AddRow(placeholder = "Neuer Belag", onAdd = onAddTopping)
             }
 
@@ -179,7 +181,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChipList(items: List<String>, onRemove: (String) -> Unit) {
+private fun <T> ChipList(items: List<T>, onRemove: (T) -> Unit, labelProvider: (T) -> String) {
     if (items.isEmpty()) {
         Text(
             "(noch keine)",
@@ -195,7 +197,7 @@ private fun ChipList(items: List<String>, onRemove: (String) -> Unit) {
         items.forEach { item ->
             AssistChip(
                 onClick = { onRemove(item) },
-                label = { Text(item) },
+                label = { Text(labelProvider(item)) },
                 trailingIcon = {
                     Icon(
                         Icons.Default.Close,
@@ -235,7 +237,7 @@ private fun AddRow(placeholder: String, onAdd: (String) -> Unit) {
             },
             enabled = text.isNotBlank(),
             shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.height(56.dp),  // match OutlinedTextField height
+            modifier = Modifier.height(56.dp),
         ) {
             Icon(Icons.Default.Add, contentDescription = "Hinzufügen")
         }
@@ -244,7 +246,7 @@ private fun AddRow(placeholder: String, onAdd: (String) -> Unit) {
 
 @Composable
 private fun PresetRow(preset: Pizza, onRemove: () -> Unit) {
-    Card(
+     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -289,8 +291,8 @@ private fun AddPresetDialog(
     onAdd: (Pizza) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
-    var sauce by remember { mutableStateOf(menu.sauces.firstOrNull().orEmpty()) }
-    var toppings by remember { mutableStateOf<List<String>>(emptyList()) }
+    var sauce by remember { mutableStateOf(menu.sauces.firstOrNull() ?: Sauce("Tomate")) }
+    var toppings by remember { mutableStateOf<LinkedHashSet<Topping>>(linkedSetOf()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -298,7 +300,7 @@ private fun AddPresetDialog(
         text = {
             Column(
                 modifier = Modifier
-                    .heightIn(max = 480.dp)   // keep dialog scrollable on small screens
+                    .heightIn(max = 480.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
@@ -326,7 +328,7 @@ private fun AddPresetDialog(
                         FilterChip(
                             selected = s == sauce,
                             onClick = { sauce = s },
-                            label = { Text(s) },
+                            label = { Text(s.name) },
                         )
                     }
                 }
@@ -352,9 +354,9 @@ private fun AddPresetDialog(
                             FilterChip(
                                 selected = t in toppings,
                                 onClick = {
-                                    toppings = if (t in toppings) toppings - t else toppings + t
+                                    toppings = (if (t in toppings) toppings - t else toppings + t) as LinkedHashSet<Topping>
                                 },
-                                label = { Text(t) },
+                                label = { Text(t.name) },
                             )
                         }
                     }
@@ -364,7 +366,7 @@ private fun AddPresetDialog(
         confirmButton = {
             TextButton(
                 onClick = { onAdd(Pizza(name.trim(), sauce, toppings)) },
-                enabled = name.isNotBlank() && sauce.isNotBlank(),
+                enabled = name.isNotBlank(),
             ) { Text("Hinzufügen") }
         },
         dismissButton = {
@@ -372,3 +374,4 @@ private fun AddPresetDialog(
         },
     )
 }
+

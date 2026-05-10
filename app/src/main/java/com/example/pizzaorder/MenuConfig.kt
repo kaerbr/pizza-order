@@ -2,63 +2,76 @@ package com.example.pizzaorder
 
 import kotlinx.serialization.Serializable
 
-/**
- * The editable menu. Persisted as JSON in filesDir, loaded on app start, mutated
- * via the SettingsScreen.
- *
- * Why a data class and not strings.xml / Room / DataStore?
- * - Serializable + immutable: state changes are dirt-simple (.copy(...)).
- * - One blob → one file. Same pattern as OrderRepo, no new persistence machinery.
- * - DEFAULT below is the "ship-with-the-app" value; first launch writes it to
- *   disk so future launches always read from a real file.
- */
 @Serializable
 data class MenuConfig(
-    val sauces: List<String>,
-    val toppings: List<String>,
-    val presets: List<Pizza>,
+    val sauces: LinkedHashSet<Sauce> = linkedSetOf(),
+    val toppings: LinkedHashSet<Topping> = linkedSetOf(),
+    val presets: LinkedHashSet<Pizza> = linkedSetOf(),
 ) {
-    fun withSauce(name: String) = copy(sauces = sauces + name)
-    fun withoutSauce(name: String): MenuConfig {
-        val next = sauces - name
-        val fallback = next.firstOrNull() ?: ""
+    init {
+        presets.forEach {
+            require(it.sauce in sauces) { "Pizza ${it.name} nutzt unbekannte Sauce: ${it.sauce.name}" }
+            it.toppings.forEach {
+                require(it in toppings) { "Pizza ${it.name} nutzt unbekannten Belag: ${it.name}" }
+            }
+        }
+    }
+
+    // 1. Creates ONE new LinkedHashSet with the current items
+    // 2. Adds the new item to it
+    // 3. Passes the new set to the copy constructor
+    fun withSauce(sauce: Sauce) = copy(
+        sauces = LinkedHashSet(sauces).apply { add(sauce) }
+    )
+
+    fun withoutSauce(sauce: Sauce): MenuConfig {
+        val nextSauces = LinkedHashSet(sauces).apply { remove(sauce) }
+        val fallback = nextSauces.firstOrNull() ?: DEFAULT_SAUCE
+
         return copy(
-            sauces = next,
-            presets = presets.map { if (it.sauce == name) it.copy(sauce = fallback) else it }
+            sauces = nextSauces,
+            presets = presets.mapTo(LinkedHashSet()) {
+                if (it.sauce == sauce) it.copy(sauce = fallback) else it
+            }
         )
     }
 
-    fun withTopping(name: String) = copy(toppings = toppings + name)
-    fun withoutTopping(name: String) = copy(
-        toppings = toppings - name,
-        presets = presets.map { it.copy(toppings = it.toppings - name) }
+    fun withTopping(topping: Topping) = copy(
+        toppings = LinkedHashSet(toppings).apply { add(topping) }
     )
 
-    fun withPreset(pizza: Pizza) = copy(presets = presets + pizza)
-    fun withoutPreset(name: String) = copy(presets = presets.filter { it.name != name })
+    fun withoutTopping(topping: Topping) = copy(
+        toppings = LinkedHashSet(toppings).apply { remove(topping) },
+        presets = presets.mapTo(LinkedHashSet()) {
+            it.copy(toppings = LinkedHashSet(it.toppings).apply { remove(topping) })
+        }
+    )
+
+    fun withPreset(pizza: Pizza) = copy(
+        presets = LinkedHashSet(presets).apply { add(pizza) }
+    )
+
+    fun withoutPreset(name: String) = copy(
+        presets = presets.filterTo(LinkedHashSet()) { it.name != name }
+    )
 
     companion object {
+        val DEFAULT_SAUCE = Sauce("Tomate")
         val DEFAULT = MenuConfig(
-            sauces = listOf(
-                "Tomate",
+            sauces = linkedSetOf(DEFAULT_SAUCE),
+            toppings = linkedSetOf(
+                Topping("Zwiebeln"),
+                Topping("Knoblauch"),
+                Topping("Salami"),
+                Topping("Oliven"),
+                Topping("Käse"),
+                Topping("Rucola"),
+                Topping("Basilikum"),
             ),
-            toppings = listOf(
-                "Zwiebeln",
-                "Knoblauch",
-                "Salami",
-                "Mozzarella",
-                "Käse",
-                "Oliven",
-                "Rucola",
-                "Artischocken",
-                "Basilikum",
-            ),
-            presets = listOf(
-                Pizza("Speciale",         "Tomate", listOf("Zwiebeln", "Knoblauch", "Rucola")),
-                Pizza("Margherita",       "Tomate", listOf("Käse")),
-                Pizza("Neapolitana",      "Tomate", listOf("Mozarella", "Basilikum")),
-                Pizza("Salami",           "Tomate", listOf("Salami", "Käse")),
-                Pizza("Vegetariana",      "Tomate", listOf("Paprika", "Zwiebeln", "Oliven", "Artischocken", "Käse")),
+            presets = linkedSetOf(
+                Pizza("Speciale",    Sauce("Tomate"), linkedSetOf(Topping("Zwiebeln"), Topping("Knoblauch"), Topping("Rucola"))),
+                Pizza("Margherita",  Sauce("Tomate"), linkedSetOf(Topping("Käse"))),
+                Pizza("Salami",      Sauce("Tomate"), linkedSetOf(Topping("Salami"), Topping("Käse"))),
             ),
         )
     }

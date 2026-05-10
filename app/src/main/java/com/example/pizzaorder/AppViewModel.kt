@@ -89,28 +89,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // ─── Menu ───────────────────────────────────────────────────────────────
 
     fun addSauce(name: String) = name.trim().takeIf { it.isNotEmpty() }?.let { clean ->
-        if (clean in _state.value.menu.sauces) updateMessage("Sauce $clean gibt es schon.")
-        else updateMenu { it.withSauce(clean) }
+        updateMenu { it.withSauce(Sauce(clean)) }
     }
 
-    fun removeSauce(name: String) = updateMenu { m ->
+    fun removeSauce(sauce: Sauce) = updateMenu { m ->
         if (m.sauces.size <= 1) { updateMessage("Mindestens eine Sauce muss bleiben."); m }
-        else m.withoutSauce(name)
+        else m.withoutSauce(sauce)
     }
 
     fun addTopping(name: String) = name.trim().takeIf { it.isNotEmpty() }?.let { clean ->
-        if (clean in _state.value.menu.toppings) updateMessage("Belag $clean gibt es schon.")
-        else updateMenu { it.withTopping(clean) }
+        updateMenu { it.withTopping(Topping(clean)) }
     }
 
-    fun removeTopping(name: String) = updateMenu { it.withoutTopping(name) }
+    fun removeTopping(topping: Topping) = updateMenu { it.withoutTopping(topping) }
 
     fun addPreset(pizza: Pizza) {
         val clean = pizza.name.trim()
         if (clean.isEmpty()) return
-        if (_state.value.menu.presets.any { it.name.equals(clean, ignoreCase = true) }) {
-            updateMessage("Pizza $clean gibt es schon.")
-        } else updateMenu { it.withPreset(pizza.copy(name = clean)) }
+        updateMenu { it.withPreset(pizza.copy(name = clean)) }
     }
 
     fun removePreset(name: String) = updateMenu { it.withoutPreset(name) }

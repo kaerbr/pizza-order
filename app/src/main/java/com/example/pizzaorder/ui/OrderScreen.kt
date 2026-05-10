@@ -43,6 +43,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.example.pizzaorder.MenuConfig
 import com.example.pizzaorder.Pizza
+import com.example.pizzaorder.Sauce
+import com.example.pizzaorder.Topping
 
 private const val CUSTOM_NAME = "Eigenkreation"
 
@@ -57,8 +59,13 @@ fun OrderScreen(
     var note by rememberSaveable { mutableStateOf("") }
     
     val firstPreset = menu.presets.firstOrNull()
-    var sauce by rememberSaveable { mutableStateOf(firstPreset?.sauce ?: menu.sauces.firstOrNull().orEmpty()) }
-    var toppings by rememberSaveable { mutableStateOf(firstPreset?.toppings ?: emptyList()) }
+    // CRITICAL: We store simple names to satisfy rememberSaveable (must be Parcelable/Primitive)
+    var sauceName by rememberSaveable { mutableStateOf(firstPreset?.sauce?.name ?: menu.sauces.firstOrNull()?.name ?: "Tomate") }
+    var toppingNames by rememberSaveable { mutableStateOf(firstPreset?.toppings?.map { it.name } ?: emptyList<String>()) }
+
+    // Reconstruct objects for logic
+    val sauce = remember(sauceName) { Sauce(sauceName) }
+    val toppings = remember(toppingNames) { toppingNames.map { Topping(it) }.toSet() }
 
     val pizzaName = remember(sauce, toppings) {
         menu.presets.find { it.sauce == sauce && it.toppings.toSet() == toppings.toSet() }?.name ?: CUSTOM_NAME
@@ -70,7 +77,7 @@ fun OrderScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 16.dp)
             .widthIn(max = 720.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         OutlinedTextField(
@@ -86,48 +93,54 @@ fun OrderScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        SectionHeader("Pizza")
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            menu.presets.forEach { p ->
-                PizzaTile(p.name, pizzaName == p.name) {
-                    sauce = p.sauce; toppings = p.toppings
-                }
-            }
-            PizzaTile(CUSTOM_NAME, pizzaName == CUSTOM_NAME, Icons.Default.Add) { /* updates via derived name */ }
-        }
-
-        SectionHeader("Sauce")
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                menu.sauces.forEach { s ->
-                    FilterChip(
-                        selected = s == sauce,
-                        onClick = { sauce = s },
-                        label = { Text(s) },
-                    )
-                }
-            }
-        }
-
-        SectionHeader("Belag")
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionHeader("Pizza")
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                menu.toppings.forEach { t ->
-                    FilterChip(
-                        selected = t in toppings,
-                        onClick = {
-                            toppings = if (t in toppings) toppings - t else toppings + t
-                        },
-                        label = { Text(t) },
-                    )
+                menu.presets.forEach { p ->
+                    PizzaTile(p.name, pizzaName == p.name) {
+                        sauceName = p.sauce.name; toppingNames = p.toppings.map { it.name }
+                    }
+                }
+                PizzaTile(CUSTOM_NAME, pizzaName == CUSTOM_NAME, Icons.Default.Add) { /* updates via derived name */ }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionHeader("Sauce")
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    menu.sauces.forEach { s ->
+                        FilterChip(
+                            selected = s.name == sauceName,
+                            onClick = { sauceName = s.name },
+                            label = { Text(s.name) },
+                        )
+                    }
+                }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionHeader("Belag")
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    menu.toppings.forEach { t ->
+                        FilterChip(
+                            selected = t.name in toppingNames,
+                            onClick = {
+                                toppingNames = if (t.name in toppingNames) toppingNames - t.name else toppingNames + t.name
+                            },
+                            label = { Text(t.name) },
+                        )
+                    }
                 }
             }
         }
@@ -144,13 +157,13 @@ fun OrderScreen(
 
         Button(
             onClick = {
-                onSubmit(customer, Pizza(pizzaName, sauce, toppings), note)
+                onSubmit(customer, Pizza(pizzaName, sauce, toppings as LinkedHashSet<Topping>), note)
                 customer = ""; note = ""
                 menu.presets.firstOrNull()?.let { p ->
-                    sauce = p.sauce; toppings = p.toppings
+                    sauceName = p.sauce.name; toppingNames = p.toppings.map { it.name }
                 }
             },
-            enabled = customer.isNotBlank() && sauce.isNotBlank(),
+            enabled = customer.isNotBlank() && sauceName.isNotBlank(),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth().height(64.dp),
         ) {
