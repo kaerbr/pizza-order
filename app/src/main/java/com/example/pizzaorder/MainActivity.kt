@@ -3,7 +3,6 @@ package com.example.pizzaorder
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,25 +17,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -48,10 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.pizzaorder.ui.OrderScreen
 import com.example.pizzaorder.ui.OrdersListScreen
@@ -140,38 +132,6 @@ private fun MainScaffold(
     vm: AppViewModel,
 ) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    var showAuth by remember { mutableStateOf(false) }
-    var authInput by remember { mutableStateOf("") }
-
-    if (showAuth) {
-        AlertDialog(
-            onDismissRequest = { showAuth = false; authInput = "" },
-            title = { Text("Passwort erforderlich") },
-            text = {
-                OutlinedTextField(
-                    value = authInput,
-                    onValueChange = { authInput = it },
-                    label = { Text("Passwort") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (authInput == "1234") {
-                        showAuth = false; authInput = ""; onOpenSettings()
-                    } else {
-                        Toast.makeText(context, "Falsches Passwort", Toast.LENGTH_SHORT).show()
-                    }
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAuth = false; authInput = "" }) { Text("Abbrechen") }
-            }
-        )
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -185,7 +145,7 @@ private fun MainScaffold(
                             contentDescription = if (isDark) "Lightmode" else "Darkmode",
                         )
                     }
-                    IconButton(onClick = { showAuth = true }) {
+                    IconButton(onClick = onOpenSettings) {
                         Icon(
                             Icons.Default.Edit,
                             contentDescription = "Einstellungen",
