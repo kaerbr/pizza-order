@@ -14,4 +14,9 @@ class PizzaTest {
             assertEquals(names, set.map { it.name })
         }
     }
+
+    @Test
+    fun dotRowFillsExactlyOneLine() {
+        assertEquals(32, dotRow("Gast", "Laura").removePrefix("[L]").replace("<b>", "").replace("</b>", "").length)
+    }
 }

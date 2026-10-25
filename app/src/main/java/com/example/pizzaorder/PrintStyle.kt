@@ -11,7 +11,7 @@ enum class PrintStyle(val label: String, val description: String) {
     Receipt("Beleg", "Wie ein Kassenbon: Nummer, Gast, Zeit, Positionen") {
         override fun format(order: Order, link: FunLink?) = """
             |[C]<b>P I Z Z A   P A R T Y</b>
-            |[C]forno a legna
+            |[C]forno a corrente
             |[C]================================
             |[L]BESTELLUNG[R]<font size='big'>${order.formattedNumber}</font>
             |[L]
@@ -31,7 +31,31 @@ enum class PrintStyle(val label: String, val description: String) {
         """.trimMargin()
     },
 
-    Kitchen("Küche", "Riesige Nummer und Pizza, lesbar vom Ofen aus") {
+    ReceiptDesign("Beleg Design", "Wie ein Kassenbon: Nummer, Gast, Zeit, Positionen + Design") {
+        override fun format(order: Order, link: FunLink?) = """
+            |[C]*  .  *  .  *  .  *  .  *  .  *
+            |[C]<b>P I Z Z A   P A R T Y</b>
+            |[C]*  .  *  .  *  .  *  .  *  .  *
+            |[C]================================
+            |[L]BESTELLUNG[R]<font size='big'>${order.formattedNumber}</font>
+            |[L]
+            |[L]Gast[R]<b>${order.customer}</b>
+            |[L]Zeit[R]${order.formattedTime}
+            |[C]- - - - - - - - - - - - - - - -
+            |[L]<font size='tall'><b>1x ${order.pizza.name}</b></font>
+            |[L]   ${order.pizza.sauce.name}
+            |${order.pizza.toppings.joinToString("\n") { "[L]   + ${it.name}" }}
+            |${order.note.takeIf(String::isNotBlank)?.let { "[C]- - - - - - - - - - - - - - - -\n[L]<b>NOTIZ</b>\n[L]$it" } ?: ""}
+            |[C]================================
+            |[C]BUON APPETITO
+            |${qrBlock(link)}
+            |[L]
+            |[L]
+            |[L]
+        """.trimMargin()
+    };
+
+    /*Kitchen("Küche", "Riesige Nummer und Pizza, lesbar vom Ofen aus") {
         override fun format(order: Order, link: FunLink?) = """
             |[C]<font size='big'>${order.formattedNumber}</font>
             |[C]<font size='wide'><b>${order.customer.uppercase()}</b></font>
@@ -138,6 +162,39 @@ enum class PrintStyle(val label: String, val description: String) {
         """.trimMargin()
     },
 
+    // design/bon.html — inverted header bar, dotted label/value rows, check box.
+    // ponytail: no inverted bg-black bar, cheap thermal heads print large black areas only grey.
+    Bon("Bon", "Kopf mit Doppelrahmen, Punktlinien, Ankreuzfeld und QR-Code") {
+        override fun format(order: Order, link: FunLink?) = """
+            |[C]================================
+            |[C]<font size='wide'><b>(o) PIZZA PARTY</b></font>
+            |[C]HAUSGEMACHT - FÜR DICH
+            |[C]================================
+            |[L]
+            |${dotRow("Bestell-Nr.", order.formattedNumber)}
+            |${dotRow("Gast", order.customer)}
+            |${dotRow("Zeit", order.formattedTime)}
+            |[C]________________________________
+            |[L]
+            |[L]<b>B E S T E L L U N G</b>
+            |[L]<font size='tall'><b>${order.pizza.name}</b></font>
+            |[L]
+            |[L]<b>SAUCE</b>
+            |[L]${order.pizza.sauce.name}
+            |[L]
+            |[L]<b>BELÄGE</b>
+            |${order.pizza.toppings.joinToString("\n") { "[L]- ${it.name}" }.ifEmpty { "[L]- keine" }}
+            |${order.note.takeIf(String::isNotBlank)?.let { "[L]\n[L]<b>NOTIZ</b>\n[L]$it" } ?: ""}
+            |[L]
+            |[C]________________________________
+            |${link?.let { "[L]\n[C]<qrcode size='25'>${it.url}</qrcode>" } ?: ""}
+            |[L]
+            |[C]<b>Danke & guten Appetit!</b>
+            |[L]
+            |[L]
+        """.trimMargin()
+    },
+
     Classic("Klassisch", "Der ursprüngliche Ausdruck mit Ofen-Bild") {
         override fun format(order: Order, link: FunLink?) = """
             |[C]<font size='big'>${order.formattedNumber}</font>
@@ -159,10 +216,14 @@ enum class PrintStyle(val label: String, val description: String) {
             |[L]
             |[L]
         """.trimMargin()
-    };
+    };*/
 
     abstract fun format(order: Order, link: FunLink?): String
 }
+
+// "Gast ........... Laura" filled to the 32-char line; overlong values just wrap.
+internal fun dotRow(label: String, value: String) =
+    "[L]$label ${".".repeat((32 - label.length - value.length - 2).coerceAtLeast(1))} <b>$value</b>"
 
 // "Scan me" footer; empty when Settings has no QR links.
 private fun qrBlock(link: FunLink?) = link?.let {

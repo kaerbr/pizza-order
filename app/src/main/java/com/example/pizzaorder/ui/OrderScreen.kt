@@ -150,7 +150,7 @@ fun OrderScreen(
                     }
                 }
 
-                Section("05", "Notiz für den Koch") {
+                Section("05", "Notiz für die Küche") {
                     OutlinedTextField(
                         value = note,
                         onValueChange = { note = it.take(NOTE_MAX) },

@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-10-25T17:53:50.578848500Z">
+        <DropdownSelection timestamp="2026-10-25T18:36:44.471136600Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\MSFS2024\.android\avd\Samsung_Galaxy_Tab_A11.avd" />
+              <DeviceId pluginId="Wireless" identifier="serviceName=adb-4A291FDAP001N8-qhf0Wv" />
             </handle>
           </Target>
         </DropdownSelection>
