@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NERO — one-pizza slips for 58 mm thermal</title>
+<style>
+  /* ---------------------------------------------------------------
+     Tokens
+     --------------------------------------------------------------- */
+  :root{
+    --stage:#0d0d0f;
+    --line:#26262b;
+    --line-soft:#1c1c20;
+    --text:#efeff1;
+    --muted:#a2a2aa;
+    --ember:#ff5a1f;
+    --paper:#fff;
+    --ink:#000;
+
+    --ui:"Bahnschrift","DIN Alternate","Franklin Gothic Medium","Segoe UI",system-ui,sans-serif;
+    --mono:"Cascadia Mono","Consolas","SFMono-Regular","DejaVu Sans Mono","Courier New",monospace;
+
+    --z:2;
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html{color-scheme:dark}
+  body{
+    margin:0;
+    background:var(--stage);
+    color:var(--text);
+    font-family:var(--ui);
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  :focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+
+  /* ---------------------------------------------------------------
+     App bar
+     --------------------------------------------------------------- */
+  .appbar{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;justify-content:space-between;
+    gap:20px;flex-wrap:wrap;
+    padding:14px 24px;
+    background:rgba(13,13,15,.88);
+    backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);
+  }
+  .appbar-id{display:flex;align-items:center;gap:12px;min-width:0}
+  .appbar-dot{width:9px;height:9px;border-radius:50%;background:var(--ember);flex:0 0 auto}
+  .appbar-brand{font-size:15px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+  .appbar-meta{
+    font-size:11px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;
+    padding-left:12px;border-left:1px solid var(--line);white-space:nowrap;
+  }
+  .appbar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+  .seg{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:3px;background:#101013}
+  .seg-btn{
+    appearance:none;border:0;background:none;cursor:pointer;
+    color:var(--muted);font-size:12px;letter-spacing:.05em;
+    padding:7px 11px;border-radius:2px;white-space:nowrap;
+    transition:background .18s ease,color .18s ease;
+  }
+  .seg-btn:hover{color:var(--text);background:#191a1e}
+  .seg-btn.is-on{background:var(--text);color:#0b0b0c;font-weight:600}
+  .seg-zoom .seg-btn{padding:7px 9px;font-variant-numeric:tabular-nums}
+
+  .print-btn{
+    appearance:none;cursor:pointer;
+    border:1px solid var(--ember);
+    background:var(--ember);color:#120a05;
+    font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    padding:9px 16px;border-radius:3px;
+    transition:background .18s ease,transform .18s ease;
+  }
+  .print-btn:hover{background:#ff6f3b}
+  .print-btn:active{transform:translateY(1px)}
+
+  /* ---------------------------------------------------------------
+     Layout
+     --------------------------------------------------------------- */
+  .layout{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 372px;
+    align-items:start;
+    min-height:calc(100vh - 65px);
+  }
+
+  .stage{padding:34px 32px 56px;min-width:0}
+  .stage-head{max-width:620px;margin:0 auto 8px;text-align:center}
+  .stage-kicker{
+    margin:0 0 8px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);
+  }
+  .stage-kicker b{color:var(--ember);font-weight:600}
+  .stage-title{
+    margin:0 0 10px;font-size:26px;line-height:1.15;font-weight:600;letter-spacing:.01em;
+  }
+  .stage-desc{
+    margin:0 auto;max-width:52ch;font-size:13.5px;line-height:1.6;color:var(--muted);
+  }
+
+  .stage-canvas{
+    margin-top:26px;
+    display:flex;justify-content:center;align-items:flex-start;
+    overflow:auto;
+    padding:22px 12px 30px;
+    background:
+      radial-gradient(120% 80% at 50% 0%,rgba(255,90,31,.05),transparent 60%),
+      repeating-linear-gradient(to right,rgba(255,255,255,.028) 0 1px,transparent 1px 8mm),
+      repeating-linear-gradient(to bottom,rgba(255,255,255,.028) 0 1px,transparent 1px 8mm),
+      #0a0a0c;
+    border:1px solid var(--line-soft);
+    border-radius:4px;
+  }
+
+  .specimen{zoom:var(--z);display:flex;flex-direction:column;align-items:center}
+
+  /* dimension guides */
+  .dim{position:relative;width:58mm;height:9mm;flex:0 0 auto}
+  .dim::before{
+    content:"";position:absolute;left:0;right:0;bottom:2.5mm;height:.25mm;background:#4b4b55;
+  }
+  .dim::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:2.5mm;
+    border-left:.25mm solid #4b4b55;border-right:.25mm solid #4b4b55;
+  }
+  .dim-label{
+    position:absolute;left:50%;bottom:4mm;transform:translateX(-50%);
+    font-size:calc(10px / var(--z));letter-spacing:.14em;text-transform:uppercase;
+    color:#8b8b95;white-space:nowrap;
+  }
+  .dim-inner{width:48mm;margin:0 auto 1mm}
+  .dim-inner .dim-label{color:#6f6f79}
+
+  .roll{display:flex;flex-direction:column;align-items:center}
+  .cut{
+    width:58mm;height:9mm;margin-top:1mm;position:relative;
+    border-top:.2mm dashed #5c5c66;
+  }
+  .cut span{
+    position:absolute;top:1.6mm;left:50%;transform:translateX(-50%);
+    font-size:calc(9px / var(--z));letter-spacing:.2em;text-transform:uppercase;color:#6f6f79;
+    background:#0a0a0c;padding:0 2mm;white-space:nowrap;
+  }
+
+  /* ---------------------------------------------------------------
+     Paper
+     --------------------------------------------------------------- */
+  .paper{
+    width:58mm;
+    padding:5mm 5mm 10mm;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--mono);
+    font-size:2.6mm;
+    line-height:1.34;
+    box-shadow:0 1.4mm 3.2mm rgba(0,0,0,.6),0 0 0 .25mm rgba(255,255,255,.07);
+  }
+  .paper:not(.is-active){display:none}
+  .paper p{margin:0}
+
+  .row{display:flex;align-items:baseline;justify-content:space-between;gap:3mm}
+  .label{font-size:2.1mm;line-height:1.3;font-weight:700;letter-spacing:.015em}
+  .fine{font-size:1.95mm;line-height:1.42}
+  .hr{height:.3mm;background:#000;margin:3mm 0}
+  .sec{margin-top:3mm}
+
+  /* brand */
+  .brand{display:flex;flex-direction:column;align-items:center;text-align:center}
+  .brand-mark{line-height:0;margin-bottom:1.4mm}
+  .brand-name{
+    font-size:4.6mm;font-weight:700;line-height:1.05;
+    letter-spacing:.24em;text-indent:.24em;
+  }
+  .brand-tag{font-size:2.2mm;letter-spacing:.06em;margin-top:1mm}
+  .brand-addr{font-size:1.95mm;line-height:1.45;margin-top:1.4mm}
+
+  /* guest */
+  .cust-name{font-size:3.0mm;font-weight:700;line-height:1.2;margin-top:.8mm}
+  .cust-meta{font-size:2.35mm;line-height:1.4;margin-top:.4mm}
+  .ticket{
+    display:flex;justify-content:space-between;gap:3mm;
+    margin-top:1.6mm;font-size:2.2mm;line-height:1.4;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* pizza */
+  .pizza-name{
+    font-size:4.2mm;font-weight:700;line-height:1.12;letter-spacing:-.01em;
+  }
+  .pizza-meta{font-size:2.25mm;line-height:1.4;margin-top:1.1mm}
+
+  .notice{
+    border:.5mm solid #000;padding:2.2mm 2.2mm 2.4mm;margin-top:2.6mm;
+  }
+  .notice .label{margin-bottom:.8mm}
+  .notice p + p{margin-top:.6mm}
+  .notice-strong{font-size:2.35mm;font-weight:700;line-height:1.28}
+
+  /* ingredients */
+  .ingredients{list-style:none;margin:1.4mm 0 0;padding:0}
+  .ingredients li{display:flex;gap:1.8mm;font-size:2.4mm;line-height:1.5}
+  .ingredients li span{flex:0 0 2.2mm;font-weight:700}
+
+  /* extras */
+  .extra{font-size:2.55mm;font-weight:700;line-height:1.35;margin-top:.9mm}
+  .extra-note{font-size:2.35mm;font-weight:700;line-height:1.35;margin-top:.7mm}
+
+  /* claim number */
+  .number-block{text-align:center}
+  .big-number{
+    font-size:9mm;font-weight:700;line-height:1;
+    letter-spacing:.16em;text-indent:.16em;margin:1.4mm 0 1.6mm;
+  }
+
+  /* footer */
+  .thanks{font-size:3mm;font-weight:700;text-align:center;letter-spacing:.02em}
+  .keep{font-size:2.05mm;text-align:center;margin-top:1mm}
+  .party{font-size:1.95mm;line-height:1.5;text-align:center;margin-top:2.2mm}
+
+  /* annotation highlight */
+  .paper .hl{outline:.4mm solid var(--ember);outline-offset:1.2mm}
+
+  /* ---------------------------------------------------------------
+     Side panel
+     --------------------------------------------------------------- */
+  .side{
+    position:sticky;top:65px;align-self:start;
+    max-height:calc(100vh - 65px);overflow:auto;
+    padding:30px 26px 40px;
+    border-left:1px solid var(--line);
+    background:#0f0f11;
+  }
+  .side-block + .side-block{margin-top:30px;padding-top:26px;border-top:1px solid var(--line-soft)}
+  .side-kicker{
+    margin:0 0 14px;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);
+  }
+  .facts{display:grid;grid-template-columns:1fr auto;gap:9px 16px;margin:0}
+  .facts dt{font-size:12.5px;color:var(--muted)}
+  .facts dd{margin:0;font-size:12.5px;font-family:var(--mono);color:var(--text);text-align:right}
+
+  .anat{list-style:none;margin:0;padding:0}
+  .anat li{
+    display:grid;grid-template-columns:26px 1fr;gap:10px;
+    padding:11px 8px 11px 6px;margin:0 -6px;
+    border-bottom:1px solid var(--line-soft);
+    cursor:default;
+    transition:background .16s ease;
+  }
+  .anat li:last-child{border-bottom:0}
+  .anat li:hover,.anat li:focus-visible{background:#17171b;outline:none}
+  .anat .num{
+    font-family:var(--mono);font-size:11px;line-height:1.6;color:var(--ember);letter-spacing:.04em;
+  }
+  .anat h2{
+    margin:0 0 3px;font-size:13px;font-weight:600;letter-spacing:.02em;
+  }
+  .anat p{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+
+  .side-link{
+    display:inline-flex;align-items:center;gap:8px;
+    margin-top:26px;padding-top:22px;border-top:1px solid var(--line-soft);
+    color:var(--text);text-decoration:none;font-size:12.5px;letter-spacing:.04em;
+    border-bottom:0;
+  }
+  .side-link span{color:var(--ember)}
+  .side-link:hover{color:var(--ember)}
+
+  .stage-foot{
+    max-width:620px;margin:16px auto 0;text-align:center;
+    font-size:11.5px;letter-spacing:.04em;color:#77777f;
+  }
+
+  /* ---------------------------------------------------------------
+     Responsive
+     --------------------------------------------------------------- */
+  @media (max-width:1040px){
+    .layout{grid-template-columns:1fr}
+    .side{position:static;max-height:none;border-left:0;border-top:1px solid var(--line)}
+    .appbar-brand{font-size:13px}
+  }
+  @media (max-width:640px){
+    .stage{padding:24px 14px 40px}
+    .stage-canvas{padding:16px 4px 22px}
+    .appbar{padding:12px 14px}
+    .seg-zoom{display:none}
+    .stage-title{font-size:22px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important}
+  }
+
+  /* ---------------------------------------------------------------
+     Print: only the active paper, exactly 58 mm wide
+     --------------------------------------------------------------- */
+  @media print{
+    @page{size:58mm auto;margin:0}
+    html,body{background:#fff!important;color:#000!important}
+    .appbar,.stage-head,.stage-foot,.side,.dim,.cut{display:none!important}
+    .layout{display:block;min-height:0}
+    .stage{padding:0;background:#fff}
+    .stage-canvas{
+      margin:0;padding:0;border:0;border-radius:0;background:#fff;
+      display:block;overflow:visible;
+    }
+    .specimen{zoom:1!important;display:block}
+    .roll{display:block}
+    .paper{
+      width:58mm;margin:0;box-shadow:none;
+      padding:5mm 5mm 10mm;
+    }
+    .paper:not(.is-active){display:none!important}
+    .paper .hl{outline:none!important}
+    .paper *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-id">
+    <span class="appbar-dot" aria-hidden="true"></span>
+    <span class="appbar-brand">Nero · Order slips</span>
+    <span class="appbar-meta">58 mm · ESC/POS</span>
+  </div>
+
+  <div class="appbar-actions">
+    <div class="seg" role="group" aria-label="Pizza variant">
+      <button class="seg-btn is-on" type="button" data-variant="margherita" aria-pressed="true">Margherita</button>
+      <button class="seg-btn" type="button" data-variant="diavola" aria-pressed="false">Diavola</button>
+      <button class="seg-btn" type="button" data-variant="allergy" aria-pressed="false">Allergy</button>
+    </div>
+    <div class="seg seg-zoom" role="group" aria-label="Preview zoom">
+      <button class="seg-btn" type="button" data-zoom="1.5">150%</button>
+      <button class="seg-btn is-on" type="button" data-zoom="2">200%</button>
+      <button class="seg-btn" type="button" data-zoom="3">300%</button>
+    </div>
+    <button class="print-btn" type="button" id="print">Print 58 mm</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="stage">
+    <div class="stage-head">
+      <p class="stage-kicker">Specimen <b id="variant-num">01</b> / 03</p>
+      <h1 class="stage-title" id="variant-title">Margherita · the simple slip</h1>
+      <p class="stage-desc" id="variant-desc">One pizza, four ingredients, one number. Most of the paper is the pizza itself.</p>
+    </div>
+
+    <div class="stage-canvas">
+      <div class="specimen">
+        <div class="dim"><span class="dim-label">58 mm paper</span></div>
+        <div class="dim dim-inner"><span class="dim-label">48 mm printable</span></div>
+
+        <div class="roll">
+
+          <!-- ========================== MARGHERITA ========================== -->
+          <article class="paper is-active" data-paper="margherita" aria-label="One-pizza slip for Mara Klein, pizza number 419">
+            <div class="brand" data-anno="brand">
+              <div class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 40 40" width="7mm" height="7mm">
+                  <circle cx="20" cy="20" r="16.8" fill="none" stroke="currentColor" stroke-width="2.8"/>
+                  <circle cx="14.4" cy="15.2" r="3.4" fill="currentColor"/>
+                  <circle cx="25.6" cy="16.2" r="3.4" fill="currentColor"/>
+                  <circle cx="20" cy="26.4" r="3.4" fill="currentColor"/>
+                </svg>
+              </div>
+              <p class="brand-name">NERO</p>
+              <p class="brand-tag">pizza night · saturday</p>
+              <p class="brand-addr">at the Kleins</p>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="sec" data-anno="guest" style="margin-top:0">
+              <p class="label">for</p>
+              <p class="cust-name">Mara Klein</p>
+              <p class="cust-meta">garden table</p>
+            </div>
+
+            <div class="ticket" data-anno="ticket">
+              <span>#A-1042</span>
+              <span>ready 20:05</span>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="sec" data-anno="pizza" style="margin-top:0">
+              <p class="pizza-name">Margherita DOP</p>
+              <p class="pizza-meta">32 cm · slow dough · wood oven</p>
+            </div>
+
+            <div class="sec" data-anno="ingredients">
+              <p class="label">on it</p>
+              <ul class="ingredients">
+                <li><span aria-hidden="true">·</span>san marzano tomato sauce</li>
+                <li><span aria-hidden="true">·</span>fior di latte mozzarella</li>
+                <li><span aria-hidden="true">·</span>fresh basil</li>
+                <li><span aria-hidden="true">·</span>cold-pressed olive oil</li>
+              </ul>
+            </div>
+
+            <div class="sec" data-anno="extras">
+              <p class="label">extra</p>
+              <p class="extra-note">cut into 6</p>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="sec number-block" data-anno="number" style="margin-top:0">
+              <p class="label">your number</p>
+              <p class="big-number">419</p>
+              <p class="fine">shout it at the oven</p>
+            </div>
+
+            <div class="hr"></div>
+
+            <footer data-anno="footer" class="sec" style="margin-top:0">
+              <p class="thanks">grazie!</p>
+              <p class="keep">eat it while it's hot</p>
+              <p class="party">pizza night at the Kleins · saturday</p>
+            </footer>
+          </article>
+
+          <!-- ============================ DIAVOLA ============================ -->
+          <article class="paper" data-paper="diavola" aria-label="One-pizza slip for Nora Berger, pizza number 527">
+            <div class="brand" data-anno="brand">
+              <div class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 40 40" width="7mm" height="7mm">
+                  <circle cx="20" cy="20" r="16.8" fill="none" stroke="currentColor" stroke-width="2.8"/>
+                  <circle cx="14.4" cy="15.2" r="3.4" fill="currentColor"/>
+                  <circle cx="25.6" cy="16.2" r="3.4" fill="currentColor"/>
+                  <circle cx="20" cy="26.4" r="3.4" fill="currentColor"/>
+                </svg>
+              </div>
+              <p class="brand-name">NERO</p>
+              <p class="brand-tag">pizza night · saturday</p>
+              <p class="brand-addr">at the Kleins</p>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="sec" data-anno="guest" style="margin-top:0">
+              <p class="label">for</p>
+              <p class="cust-name">Nora Berger</p>
+              <p class="cust-meta">table 4</p>
+            </div>
+
+            <div class="ticket" data-anno="ticket">
+              <span>#A-1043</span>
+              <span>ready 20:12</span>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="sec" data-anno="pizza" style="margin-top:0">
+              <p class="pizza-name">Diavola</p>
+              <p class="pizza-meta">32 cm · slow dough · wood oven</p>
+            </div>
+
+            <div class="sec" data-anno="ingredients">
+              <p class="label">on it</p>
+              <ul class="ingredients">
+                <li><span aria-hidden="true">·</span>san marzano tomato sauce</li>
+                <li><span aria-hidden="true">·</span>fior di latte mozzarella</li>
+                <li><span aria-hidden="true">·</span>spicy salame</li>
+                <li><span aria-hidden="true">·</span>chilli flakes</li>
+              </ul>
+            </div>
+
+            <div class="sec" data-anno="extras">
+              <p class="label">extra</p>
+              <p class="extra">+ nduja</p>
+              <p class="extra-note">no oregano<br>cut into 8</p>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="sec number-block" data-anno="number" style="margin-top:0">
+              <p class="label">your number</p>
+              <p class="big-number">527</p>
+              <p class="fine">shout it at the oven</p>
+            </div>
+
+            <div class="hr"></div>
+
+            <footer data-anno="footer" class="sec" style="margin-top:0">
+              <p class="thanks">grazie!</p>
+              <p class="keep">eat it while it's hot</p>
+              <p class="party">pizza night at the Kleins · saturday</p>
+            </footer>
+          </article>
+
+          <!-- ============================ ALLERGY ============================ -->
+          <article class="paper" data-paper="allergy" aria-label="One-pizza allergy slip for Jonas Weber, pizza number 512">
+            <div class="brand" data-anno="brand">
+              <div class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 40 40" width="7mm" height="7mm">
+                  <circle cx="20" cy="20" r="16.8" fill="none" stroke="currentColor" stroke-width="2.8"/>
+                  <circle cx="14.4" cy="15.2" r="3.4" fill="currentColor"/>
+                  <circle cx="25.6" cy="16.2" r="3.4" fill="currentColor"/>
+                  <circle cx="20" cy="26.4" r="3.4" fill="currentColor"/>
+                </svg>
+              </div>
+              <p class="brand-name">NERO</p>
+              <p class="brand-tag">pizza night · saturday</p>
+              <p class="brand-addr">at the Kleins</p>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="sec" data-anno="guest" style="margin-top:0">
+              <p class="label">for</p>
+              <p class="cust-name">Jonas Weber</p>
+              <p class="cust-meta">terrace</p>
+            </div>
+
+            <div class="ticket" data-anno="ticket">
+              <span>#A-1047</span>
+              <span>ready 20:31</span>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="sec" data-anno="pizza" style="margin-top:0">
+              <p class="pizza-name">Verde</p>
+              <p class="pizza-meta">32 cm · slow dough · wood oven</p>
+              <div class="notice">
+                <p class="label">allergy · no nuts</p>
+                <p class="notice-strong">Severe. Clean board, separate cutter, no pesto nearby.</p>
+              </div>
+            </div>
+
+            <div class="sec" data-anno="ingredients">
+              <p class="label">on it</p>
+              <ul class="ingredients">
+                <li><span aria-hidden="true">·</span>san marzano tomato sauce</li>
+                <li><span aria-hidden="true">·</span>fior di latte mozzarella</li>
+                <li><span aria-hidden="true">·</span>courgette</li>
+                <li><span aria-hidden="true">·</span>aubergine</li>
+                <li><span aria-hidden="true">·</span>peppers</li>
+                <li><span aria-hidden="true">·</span>red onion</li>
+                <li><span aria-hidden="true">·</span>olives</li>
+                <li><span aria-hidden="true">·</span>ruccola</li>
+              </ul>
+            </div>
+
+            <div class="sec" data-anno="extras">
+              <p class="label">extra</p>
+              <p class="extra">+ chilli oil</p>
+              <p class="extra-note">cut into 8</p>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="sec number-block" data-anno="number" style="margin-top:0">
+              <p class="label">your number</p>
+              <p class="big-number">512</p>
+              <p class="fine">shout it at the oven</p>
+            </div>
+
+            <div class="hr"></div>
+
+            <footer data-anno="footer" class="sec" style="margin-top:0">
+              <p class="thanks">grazie!</p>
+              <p class="keep">eat it while it's hot</p>
+              <p class="party">pizza night at the Kleins · saturday</p>
+            </footer>
+          </article>
+
+        </div>
+
+        <div class="cut"><span>tear bar</span></div>
+      </div>
+    </div>
+
+    <p class="stage-foot">Shown at <span id="zoom-label">200%</span> · prints at 100% on 58 mm paper · tears at the bar · annotations never print</p>
+  </section>
+
+  <aside class="side">
+    <div class="side-block">
+      <p class="side-kicker">Paper</p>
+      <dl class="facts">
+        <dt>Roll</dt><dd>58 mm</dd>
+        <dt>Printable</dt><dd>48 mm</dd>
+        <dt>Grid</dt><dd>32 chars · Font A</dd>
+        <dt>Print</dt><dd>203 dpi · 384 dots</dd>
+        <dt>Speed</dt><dd>90 mm/s</dd>
+        <dt>End</dt><dd>tear bar</dd>
+      </dl>
+    </div>
+
+    <div class="side-block">
+      <p class="side-kicker">Anatomy</p>
+      <ol class="anat">
+        <li data-anno="brand" tabindex="0">
+          <span class="num">01</span>
+          <div>
+            <h2>Logo &amp; naming</h2>
+            <p>Mark, NERO, the night and the house. Kept exactly as it was — this is the hand-made part.</p>
+          </div>
+        </li>
+        <li data-anno="guest" tabindex="0">
+          <span class="num">02</span>
+          <div>
+            <h2>Who it is for</h2>
+            <p>A lowercase “for”, the name, the seat. No guest number, no formality.</p>
+          </div>
+        </li>
+        <li data-anno="ticket" tabindex="0">
+          <span class="num">03</span>
+          <div>
+            <h2>Ticket line</h2>
+            <p>Order number and oven-ready time on one quiet line at 2.2 mm.</p>
+          </div>
+        </li>
+        <li data-anno="pizza" tabindex="0">
+          <span class="num">04</span>
+          <div>
+            <h2>The pizza</h2>
+            <p>Title case at 4.2 mm — the biggest words after the logo. Size, dough and oven underneath.</p>
+          </div>
+        </li>
+        <li data-anno="ingredients" tabindex="0">
+          <span class="num">05</span>
+          <div>
+            <h2>Ingredients</h2>
+            <p>One per line, lowercase, 2.4 mm. This is the reason the slip exists; give it the room.</p>
+          </div>
+        </li>
+        <li data-anno="extras" tabindex="0">
+          <span class="num">06</span>
+          <div>
+            <h2>Extras &amp; notes</h2>
+            <p>Additions are bold, removals and cuts follow. Short enough to read at the bench.</p>
+          </div>
+        </li>
+        <li data-anno="number" tabindex="0">
+          <span class="num">07</span>
+          <div>
+            <h2>Your number</h2>
+            <p>9 mm, unboxed, with a nudge. Loud without looking like a tax form.</p>
+          </div>
+        </li>
+        <li data-anno="footer" tabindex="0">
+          <span class="num">08</span>
+          <div>
+            <h2>Footer</h2>
+            <p>Thanks, eat-it-hot, and the party line. Three short lines, nothing legal.</p>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <a class="side-link" href="receipt-spec.html">Open the print specification <span aria-hidden="true">→</span></a>
+  </aside>
+</main>
+
+<script>
+  const variants = {
+    margherita: {num:'01', title:'Margherita · the simple slip', desc:'One pizza, four ingredients, one number. Most of the paper is the pizza itself.'},
+    diavola:    {num:'02', title:'Diavola · extras & removals', desc:'Nduja added, oregano removed, cut into eight. Changes stay bold; the base recipe stays quiet.'},
+    allergy:    {num:'03', title:'Verde · allergy note', desc:'Eight ingredients and a nut allergy boxed above them — the longest list this slip has to hold.'}
+  };
+
+  const root = document.documentElement;
+  const papers = [...document.querySelectorAll('.paper')];
+  const varButtons = [...document.querySelectorAll('[data-variant]')];
+  const zoomButtons = [...document.querySelectorAll('[data-zoom]')];
+  const zoomLabel = document.getElementById('zoom-label');
+
+  function setVariant(name){
+    if(!variants[name]) return;
+    papers.forEach(p => p.classList.toggle('is-active', p.dataset.paper === name));
+    varButtons.forEach(b => {
+      const on = b.dataset.variant === name;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    document.getElementById('variant-num').textContent = variants[name].num;
+    document.getElementById('variant-title').textContent = variants[name].title;
+    document.getElementById('variant-desc').textContent = variants[name].desc;
+    highlight(null);
+  }
+
+  function setZoom(z){
+    root.style.setProperty('--z', z);
+    zoomButtons.forEach(b => {
+      const on = Number(b.dataset.zoom) === z;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    zoomLabel.textContent = Math.round(z * 100) + '%';
+  }
+
+  function highlight(key){
+    document.querySelectorAll('.paper .hl').forEach(el => el.classList.remove('hl'));
+    if(!key) return;
+    document.querySelectorAll('.paper.is-active [data-anno="' + key + '"]')
+      .forEach(el => el.classList.add('hl'));
+  }
+
+  varButtons.forEach(btn => btn.addEventListener('click', () => setVariant(btn.dataset.variant)));
+  zoomButtons.forEach(btn => btn.addEventListener('click', () => setZoom(Number(btn.dataset.zoom))));
+
+  document.querySelectorAll('.anat li').forEach(li => {
+    const key = li.dataset.anno;
+    li.addEventListener('mouseenter', () => highlight(key));
+    li.addEventListener('mouseleave', () => highlight(null));
+    li.addEventListener('focus', () => highlight(key));
+    li.addEventListener('blur', () => highlight(null));
+  });
+
+  document.getElementById('print').addEventListener('click', () => window.print());
+  setZoom(window.innerWidth < 700 ? 1.5 : 2);
+</script>
+</body>
+</html>

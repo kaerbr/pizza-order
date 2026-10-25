@@ -9,13 +9,15 @@ import com.dantsu.escposprinter.EscPosCharsetEncoding
 import com.dantsu.escposprinter.EscPosPrinter
 import com.dantsu.escposprinter.connection.bluetooth.BluetoothPrintersConnections
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
  * Thin wrapper around DantSu's ESC/POS library.
  *
  * Strategy: each print = open connection, print, close. Don't hold a long-lived
- * connection. Cheap BT printers are flaky; reconnecting per ticket is more
+ * connection. Cheap BT printers are flaky; reconnecting per printout is more
  * reliable than recovering a broken socket.
  *
  * The printer must already be paired with the tablet via Android Bluetooth
@@ -24,11 +26,15 @@ import kotlinx.coroutines.withContext
  */
 class Printer(private val context: Context) {
 
+    // One printout at a time: an order plus a quick reprint would otherwise open two
+    // Bluetooth connections at once and one of them fails.
+    private val mutex = Mutex()
+
     /**
      * @return Result.success on print, Result.failure with a user-facing German
      *         message on any failure (no permission, no printer, BT off, etc.).
      */
-    suspend fun printOrder(order: Order): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun printOrder(order: Order, style: PrintStyle, link: FunLink?): Result<Unit> = mutex.withLock { withContext(Dispatchers.IO) {
         runCatching<Unit> {
             check(hasBluetoothPermission()) {
                 "Bluetooth-Berechtigung fehlt. In den App-Einstellungen erlauben."
@@ -48,35 +54,15 @@ class Printer(private val context: Context) {
                 EscPosCharsetEncoding("windows-1252", 16),
             )
             try {
-                printer.printFormattedTextAndCut(formatTicket(order))
+                printer.printFormattedTextAndCut(style.format(order, link))
             } finally {
                 runCatching { printer.disconnectPrinter() }
             }
         }
-    }
+    } }
 
     private fun hasBluetoothPermission(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
         return ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
     }
-
-    private fun formatTicket(order: Order) = """
-        |[C]================================
-        |[C]ORDINE PER: <b>${order.customer}</b>
-        |[C]================================
-        |[L]MODELLO: <b>${order.pizza.name}</b>
-        |[L]
-        |[L]SAUCE: ${order.pizza.sauce}
-        |[L]INGREDIENTI:
-        |${order.pizza.toppings.joinToString("\n") { "[L]  > $it" }.ifEmpty { "[L]  > (keine)" }}
-        |${order.note.takeIf(String::isNotBlank)?.let { "[L]\n[L]<b>NOTA BENE:</b>\n[L]  $it" } ?: ""}
-        |[C]--------------------------------
-        |[L]            ( )  ( )  ( )
-        |[L]             )    )    )
-        |[L]         _______________
-        |[L]        \_______________/
-        |[L]
-        |[L]
-        |[L]
-    """.trimMargin()
 }

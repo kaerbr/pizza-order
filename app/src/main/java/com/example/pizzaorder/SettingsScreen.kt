@@ -1,5 +1,6 @@
 package com.example.pizzaorder.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,10 +18,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -36,26 +41,40 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.pizzaorder.FunLink
 import com.example.pizzaorder.MenuConfig
+import com.example.pizzaorder.Order
 import com.example.pizzaorder.Pizza
 import com.example.pizzaorder.Sauce
+import com.example.pizzaorder.PrintStyle
 import com.example.pizzaorder.Topping
+
+private val ADMIN_TABS = listOf("Übersicht", "Menü", "Ausdruck", "QR-Links")
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     menu: MenuConfig,
+    orders: List<Order>,
     onAddSauce: (String) -> Unit,
     onRemoveSauce: (Sauce) -> Unit,
     onAddTopping: (String) -> Unit,
@@ -63,10 +82,17 @@ fun SettingsScreen(
     onAddPreset: (Pizza) -> Unit,
     onRemovePreset: (String) -> Unit,
     onResetMenu: () -> Unit,
+    onClearAllOrders: () -> Unit,
+    printStyle: PrintStyle,
+    onPrintStyle: (PrintStyle) -> Unit,
+    onTestPrint: () -> Unit,
+    onAddFunLink: (teaser: String, url: String) -> Unit,
+    onRemoveFunLink: (FunLink) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var tab by rememberSaveable { mutableIntStateOf(0) }
     var showAddPreset by remember { mutableStateOf(false) }
-    var confirmReset by remember { mutableStateOf(false) }
+    var confirm by remember { mutableStateOf<Confirm?>(null) }
 
     if (showAddPreset) {
         AddPresetDialog(
@@ -79,88 +105,197 @@ fun SettingsScreen(
         )
     }
 
-    if (confirmReset) {
+    confirm?.let { c ->
         AlertDialog(
-            onDismissRequest = { confirmReset = false },
-            title = { Text("Standardmenü wiederherstellen?") },
-            text = { Text("Alle aktuellen Saucen, Beläge und Pizzen werden ersetzt. Bestellungen bleiben erhalten.") },
+            onDismissRequest = { confirm = null },
+            title = { Text(c.title) },
+            text = { Text(c.text) },
             confirmButton = {
                 TextButton(
-                    onClick = { confirmReset = false; onResetMenu() },
+                    onClick = { confirm = null; if (c == Confirm.ClearOrders) onClearAllOrders() else onResetMenu() },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error,
                     ),
-                ) { Text("Wiederherstellen") }
+                ) { Text(c.action) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmReset = false }) { Text("Abbrechen") }
+                TextButton(onClick = { confirm = null }) { Text("Abbrechen") }
             },
         )
     }
 
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Column(
-            Modifier
-                .widthIn(max = 720.dp)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(28.dp),
-        ) {
-
-            Section(title = "Saucen") {
-                ChipList(items = menu.sauces.toList(), onRemove = onRemoveSauce, labelProvider = { it.name })
-                AddRow(placeholder = "Neue Sauce", onAdd = onAddSauce)
+    Column(modifier.fillMaxSize()) {
+        PrimaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surface) {
+            ADMIN_TABS.forEachIndexed { i, title ->
+                Tab(selected = tab == i, onClick = { tab = i }, text = { Text(title, fontWeight = FontWeight.SemiBold) })
             }
+        }
 
-            Section(title = "Beläge") {
-                ChipList(items = menu.toppings.toList(), onRemove = onRemoveTopping, labelProvider = { it.name })
-                AddRow(placeholder = "Neuer Belag", onAdd = onAddTopping)
-            }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Column(
+                Modifier
+                    .widthIn(max = 720.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp),
+            ) {
+                when (tab) {
+                    0 -> {
+                        Section(title = "Heute") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                val open = orders.count { !it.isDone() }
+                                StatTile("Bestellungen", orders.size, Modifier.weight(1f))
+                                StatTile("Offen", open, Modifier.weight(1f))
+                                StatTile("Fertig", orders.size - open, Modifier.weight(1f))
+                                StatTile("QR-Links", menu.funLinks.size, Modifier.weight(1f))
+                            }
+                        }
+                        Section(title = "Drucker") {
+                            Text("Ausdruck-Design: ${printStyle.label}", style = MaterialTheme.typography.bodyLarge)
+                            TestPrintButton(onTestPrint)
+                        }
+                        Section(title = "Gefahrenzone") {
+                            DangerButton("Alle Bestellungen löschen", Icons.Default.Delete) { confirm = Confirm.ClearOrders }
+                            DangerButton("Standardmenü wiederherstellen", Icons.Default.Refresh) { confirm = Confirm.ResetMenu }
+                        }
+                    }
 
-            Section(title = "Vordefinierte Pizzen") {
-                if (menu.presets.isEmpty()) {
-                    Text(
-                        "(noch keine)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    menu.presets.forEach { preset ->
-                        PresetRow(
-                            preset = preset,
-                            onRemove = { onRemovePreset(preset.name) },
-                        )
+                    1 -> {
+                        Section(title = "Saucen") {
+                            ChipList(items = menu.sauces.toList(), onRemove = onRemoveSauce, labelProvider = { it.name })
+                            AddRow(placeholder = "Neue Sauce", onAdd = onAddSauce)
+                        }
+
+                        Section(title = "Beläge") {
+                            ChipList(items = menu.toppings.toList(), onRemove = onRemoveTopping, labelProvider = { it.name })
+                            AddRow(placeholder = "Neuer Belag", onAdd = onAddTopping)
+                        }
+
+                        Section(title = "Vordefinierte Pizzen") {
+                            if (menu.presets.isEmpty()) {
+                                Text(
+                                    "(noch keine)",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                menu.presets.forEach { preset ->
+                                    PresetRow(
+                                        preset = preset,
+                                        onRemove = { onRemovePreset(preset.name) },
+                                    )
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { showAddPreset = true },
+                                shape = RoundedCornerShape(10.dp),
+                                enabled = menu.sauces.isNotEmpty(),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Pizza hinzufügen")
+                            }
+                        }
+                    }
+
+                    2 -> Section(title = "Ausdruck-Design") {
+                        PrintStyle.entries.forEach { style ->
+                            val selected = style == printStyle
+                            Surface(
+                                onClick = { onPrintStyle(style) },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(style.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                        Text(style.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    if (selected) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                        TestPrintButton(onTestPrint)
+                    }
+
+                    else -> Section(title = "QR-Links (Beleg & QR-Lacher)") {
+                        if (menu.funLinks.isEmpty()) {
+                            Text(
+                                "(keine – Ausdruck ohne QR-Code)",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        menu.funLinks.forEach { link ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(link.teaser, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                    Text(link.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                IconButton(onClick = { onRemoveFunLink(link) }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                        AddLinkRow(onAdd = onAddFunLink)
                     }
                 }
-                OutlinedButton(
-                    onClick = { showAddPreset = true },
-                    shape = RoundedCornerShape(10.dp),
-                    enabled = menu.sauces.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Pizza hinzufügen")
-                }
+
+                Spacer(Modifier.height(24.dp))
             }
-
-            HorizontalDivider()
-
-            TextButton(
-                onClick = { confirmReset = true },
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error,
-                ),
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            ) {
-                Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Standardmenü wiederherstellen")
-            }
-
-            Spacer(Modifier.height(24.dp))
         }
+    }
+}
+
+private enum class Confirm(val title: String, val text: String, val action: String) {
+    ClearOrders("Alle Bestellungen löschen?", "Das kann nicht rückgängig gemacht werden.", "Löschen"),
+    ResetMenu("Standardmenü wiederherstellen?", "Saucen, Beläge, Pizzen und QR-Links werden ersetzt. Bestellungen bleiben erhalten.", "Wiederherstellen"),
+}
+
+@Composable
+private fun StatTile(label: String, value: Int, modifier: Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            Text("$value", style = MaterialTheme.typography.headlineMedium)
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun TestPrintButton(onTestPrint: () -> Unit) {
+    OutlinedButton(
+        onClick = onTestPrint,
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(Icons.Default.Print, null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Testdruck")
+    }
+}
+
+@Composable
+private fun DangerButton(text: String, icon: ImageVector, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(icon, null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(text)
     }
 }
 
@@ -240,6 +375,41 @@ private fun AddRow(placeholder: String, onAdd: (String) -> Unit) {
             modifier = Modifier.height(56.dp),
         ) {
             Icon(Icons.Default.Add, contentDescription = "Hinzufügen")
+        }
+    }
+}
+
+@Composable
+private fun AddLinkRow(onAdd: (teaser: String, url: String) -> Unit) {
+    var teaser by remember { mutableStateOf("") }
+    var url by remember { mutableStateOf("") }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = teaser,
+            onValueChange = { teaser = it },
+            placeholder = { Text("Bezeichnung (wird nicht gedruckt), z.B. Pizza-Katzen") },
+            singleLine = true,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                placeholder = { Text("https://…") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.weight(1f),
+            )
+            Button(
+                onClick = { onAdd(teaser, url); teaser = ""; url = "" },
+                enabled = url.isNotBlank(),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.height(56.dp),
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Hinzufügen")
+            }
         }
     }
 }
@@ -354,7 +524,7 @@ private fun AddPresetDialog(
                             FilterChip(
                                 selected = t in toppings,
                                 onClick = {
-                                    toppings = (if (t in toppings) toppings - t else toppings + t) as LinkedHashSet<Topping>
+                                    toppings = LinkedHashSet(toppings).apply { if (!add(t)) remove(t) }
                                 },
                                 label = { Text(t.name) },
                             )
