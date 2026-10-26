@@ -17,8 +17,8 @@ class PizzaTest {
 
     @Test
     fun pizzaDietIsItsLeastStrictIngredient() {
-        // Own tags, so the test doesn't depend on what DEFAULT_DIETS currently says.
-        val menu = MenuConfig.DEFAULT.copy(diets = mapOf("Tomate" to Diet.VEGAN, "Rucola" to Diet.VEGAN, "Käse" to Diet.VEGETARIAN))
+        // Own tags, so the test doesn't depend on what Standard.diets currently says.
+        val menu = MenuConfig.Standard.menu.copy(diets = mapOf("Tomate" to Diet.VEGAN, "Rucola" to Diet.VEGAN, "Käse" to Diet.VEGETARIAN))
         fun pizza(sauce: String, vararg toppings: String) = Pizza("x", Sauce(sauce), Pizza.toppingsOf(toppings.toList()))
         assertEquals(Diet.VEGAN, menu.dietOf(pizza("Tomate", "Rucola")))
         assertEquals(Diet.VEGETARIAN, menu.dietOf(pizza("Tomate", "Rucola", "Käse")))

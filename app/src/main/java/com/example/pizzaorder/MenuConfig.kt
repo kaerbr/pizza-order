@@ -7,15 +7,15 @@ data class MenuConfig(
     val sauces: LinkedHashSet<Sauce> = linkedSetOf(),
     val toppings: LinkedHashSet<Topping> = linkedSetOf(),
     val presets: LinkedHashSet<Pizza> = linkedSetOf(),
-    // Default here (not just in DEFAULT) so menu.json files saved before this field existed get the links too.
-    val funLinks: List<FunLink> = DEFAULT_FUN_LINKS,
+    // Default here (not just in Standard.menu) so menu.json files saved before this field existed get the links too.
+    val funLinks: List<FunLink> = Standard.funLinks,
     // Keyed by ingredient name instead of a field on Sauce/Topping: those get rebuilt from names
     // (OrderScreen) and compared by equality, a diet field would break every `in` check.
     // Unlisted = Diet.NONE, so nothing is ever labelled vegan by accident.
-    val diets: Map<String, Diet> = DEFAULT_DIETS,
+    val diets: Map<String, Diet> = Standard.diets,
 ) {
-    // Lists every problem at once, so one failure shows all typos. MenuConfigTest runs this on DEFAULT
-    // before each debug build; a broken menu.json never gets here as a crash (JsonStore falls back to DEFAULT).
+    // Lists every problem at once, so one failure shows all typos. MenuConfigTest runs this on Standard.menu
+    // before each debug build; a broken menu.json never gets here as a crash (JsonStore falls back to Standard.menu).
     init {
         val problems = presets.flatMap { pizza ->
             listOfNotNull(pizza.sauce.takeIf { it !in sauces }?.let { "Pizza \"${pizza.name}\": Sauce \"${it.name}\" fehlt in sauces" }) +
@@ -33,7 +33,7 @@ data class MenuConfig(
 
     fun withoutSauce(sauce: Sauce): MenuConfig {
         val nextSauces = LinkedHashSet(sauces).apply { remove(sauce) }
-        val fallback = nextSauces.firstOrNull() ?: DEFAULT_SAUCE
+        val fallback = nextSauces.firstOrNull() ?: Standard.sauce
 
         return copy(
             sauces = nextSauces,
@@ -82,16 +82,14 @@ data class MenuConfig(
     // Blank sauce = Eigenkreation before a sauce is picked.
     private fun ingredients(pizza: Pizza) = (listOf(pizza.sauce.name) + pizza.toppings.map { it.name }).filter(String::isNotBlank)
 
-    companion object {
-        // Default here (like funLinks) so menu.json files from before tagging get labels too.
-        // Everything vegan for now (vegan cheese, pesto and salami); retag in Settings when that changes.
-        val DEFAULT_DIETS = listOf(
-            "Tomate", "Pesto al basilico",
-            "Zwiebeln", "Knoblauch", "Salami", "Oliven", "Käse", "Rucola", "Basilikum", "Kirschtomaten", "Pinienkerne",
-        ).associateWith { Diet.VEGAN }
+    /** The built-in menu: what a fresh install and "Standardmenü wiederherstellen" start with. */
+    object Standard {
+        // Declared before [menu]: building it reads these through the constructor defaults.
+        // Keys via .sauce/.topping, the exact objects on the menu: an enum's own `name` is "KAESE", not "Käse".
+        val diets = Sauce.entries.associate { it.sauce.name to it.diet } + Topping.entries.associate { it.topping.name to it.diet }
 
         // YouTube *search* links on purpose: they never go dead like single video IDs do.
-        val DEFAULT_FUN_LINKS = listOf(
+        val funLinks = listOf(
             FunLink("Mathe beweist: fair teilen!",       "https://de.wikipedia.org/wiki/Pizza-Theorem"),
             FunLink("Der kleine Tisch im Karton",        "https://en.wikipedia.org/wiki/Pizza_saver"),
             FunLink("Ananas: Krieg der Welten",          "https://en.wikipedia.org/wiki/Hawaiian_pizza"),
@@ -111,26 +109,46 @@ data class MenuConfig(
             FunLink("Das geheime Teigrezept",            "https://youtu.be/dQw4w9WgXcQ"),
         )
 
-        val DEFAULT_SAUCE = Sauce("Tomate")
-        val DEFAULT = MenuConfig(
-            sauces = linkedSetOf(DEFAULT_SAUCE, Sauce("Pesto al basilico")),
-            toppings = linkedSetOf(
-                Topping("Zwiebeln"),
-                Topping("Knoblauch"),
-                Topping("Salami"),
-                Topping("Oliven"),
-                Topping("Käse"),
-                Topping("Rucola"),
-                Topping("Basilikum"),
-                Topping("Kirschtomaten"),
-                Topping("Pinienkerne"),
-            ),
+        /** Fallback when a preset's sauce gets deleted. */
+        val sauce = Sauce.TOMATE.sauce
+
+        val menu = MenuConfig(
+            // Every entry is on the menu, so a preset can't use one that's missing here.
+            sauces = Sauce.entries.mapTo(LinkedHashSet()) { it.sauce },
+            toppings = Topping.entries.mapTo(LinkedHashSet()) { it.topping },
             presets = linkedSetOf(
-                Pizza("Speciale",    Sauce("Tomate"), linkedSetOf(Topping("Zwiebeln"), Topping("Knoblauch"), Topping("Rucola"))),
-                Pizza("Margherita",  Sauce("Tomate"), linkedSetOf(Topping("Käse"))),
-                Pizza("Salami",      Sauce("Tomate"), linkedSetOf(Topping("Salami"), Topping("Käse"))),
-                Pizza("Pizza Verde", Sauce("Pesto al basilico"), linkedSetOf(Topping("Kirschtomaten"), Topping("Pinienkerne"))),
+                preset("Speciale",    Sauce.TOMATE, Topping.ZWIEBELN, Topping.KNOBLAUCH, Topping.RUCOLA),
+                preset("Margherita",  Sauce.TOMATE, Topping.KAESE),
+                preset("Salami",      Sauce.TOMATE, Topping.SALAMI, Topping.KAESE),
+                preset("Pizza Verde", Sauce.PESTO, Topping.KIRSCHTOMATEN, Topping.PINIENKERNE),
             ),
         )
+
+        private fun preset(name: String, sauce: Sauce, vararg toppings: Topping) =
+            Pizza(name, sauce.sauce, toppings.mapTo(LinkedHashSet()) { it.topping })
+
+        // Typed on purpose: presets take these, not strings, so an ingredient that isn't declared
+        // here is a compile error. Only the built-ins; Settings still adds plain Sauce/Topping by name.
+        // Everything vegan for now (vegan cheese, pesto and salami); retag in Settings when that changes.
+        private enum class Sauce(val label: String, val diet: Diet) {
+            TOMATE("Tomate", Diet.VEGAN),
+            PESTO("Pesto al basilico", Diet.VEGAN);
+
+            val sauce get() = Sauce(label)
+        }
+
+        private enum class Topping(val label: String, val diet: Diet) {
+            ZWIEBELN("Zwiebeln", Diet.VEGAN),
+            KNOBLAUCH("Knoblauch", Diet.VEGAN),
+            SALAMI("Salami", Diet.VEGAN),
+            OLIVEN("Oliven", Diet.VEGAN),
+            KAESE("Käse", Diet.VEGAN),
+            RUCOLA("Rucola", Diet.VEGAN),
+            BASILIKUM("Basilikum", Diet.VEGAN),
+            KIRSCHTOMATEN("Kirschtomaten", Diet.VEGAN),
+            PINIENKERNE("Pinienkerne", Diet.VEGAN);
+
+            val topping get() = Topping(label)
+        }
     }
 }

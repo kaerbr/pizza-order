@@ -83,20 +83,26 @@ fun OrderScreen(
     var customer by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf("") }
 
-    val firstPreset = menu.presets.firstOrNull()
     // CRITICAL: We store simple names to satisfy rememberSaveable (must be Parcelable/Primitive)
-    var sauceName by rememberSaveable { mutableStateOf(firstPreset?.sauce?.name ?: menu.sauces.firstOrNull()?.name ?: "Tomate") }
-    var toppingNames by rememberSaveable { mutableStateOf(firstPreset?.toppings?.map { it.name } ?: emptyList<String>()) }
+    // Starts empty: guests pick a pizza themselves instead of finding the first preset ticked.
+    var sauceName by rememberSaveable { mutableStateOf("") }
+    var toppingNames by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    // Tapping Eigenkreation yields the same empty pizza as "nothing chosen yet"; this tells them apart.
+    var customPicked by rememberSaveable { mutableStateOf(false) }
 
     // Reconstruct objects for logic
     val sauce = remember(sauceName) { Sauce(sauceName) }
     val toppings = remember(toppingNames) { Pizza.toppingsOf(toppingNames) }
 
-    val pizzaName = remember(sauce, toppings) {
-        menu.presets.find { it.sauce == sauce && it.toppings.toSet() == toppings.toSet() }?.name ?: CUSTOM_NAME
+    val nothingChosen = sauceName.isBlank() && toppingNames.isEmpty() && !customPicked
+    // null = no card selected yet.
+    val pizzaName = remember(sauce, toppings, nothingChosen) {
+        menu.presets.find { it.sauce == sauce && it.toppings.toSet() == toppings.toSet() }?.name
+            ?: CUSTOM_NAME.takeUnless { nothingChosen }
     }
-    val current = Pizza(pizzaName, sauce, toppings)
-    val diet = menu.dietOf(current)
+    val current = Pizza(pizzaName ?: CUSTOM_NAME, sauce, toppings)
+    // No diet for an empty pizza: a bare crust would read as "Vegan" before anything is picked.
+    val diet = if (nothingChosen) Diet.NONE else menu.dietOf(current)
 
     Column(modifier.fillMaxSize()) {
         Column(
@@ -133,7 +139,7 @@ fun OrderScreen(
                                     PizzaCard(name, desc, tileDiet, pizzaName == name, Modifier.weight(1f).fillMaxHeight()) {
                                         menu.presets.find { it.name == name }?.let { p ->
                                             sauceName = p.sauce.name; toppingNames = p.toppings.map { it.name }
-                                        } ?: run { sauceName = ""; toppingNames = emptyList() } // Eigenkreation: start empty
+                                        } ?: run { sauceName = ""; toppingNames = emptyList(); customPicked = true } // Eigenkreation: start empty
                                     }
                                 }
                                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
@@ -197,7 +203,11 @@ fun OrderScreen(
                         Eyebrow("Deine Bestellung$it")
                     }
                     Text(
-                        if (customer.isBlank()) pizzaName else "$pizzaName für ${customer.trim()}",
+                        when {
+                            pizzaName == null -> "Noch keine Pizza gewählt"
+                            customer.isBlank() -> pizzaName
+                            else -> "$pizzaName für ${customer.trim()}"
+                        },
                         style = MaterialTheme.typography.headlineSmall,
                     )
                 }
@@ -220,9 +230,7 @@ fun OrderScreen(
                     onClick = {
                         onSubmit(customer, current, note)
                         customer = ""; note = ""
-                        menu.presets.firstOrNull()?.let { p ->
-                            sauceName = p.sauce.name; toppingNames = p.toppings.map { it.name }
-                        }
+                        sauceName = ""; toppingNames = emptyList(); customPicked = false
                     },
                     enabled = complete,
                     shape = shape,

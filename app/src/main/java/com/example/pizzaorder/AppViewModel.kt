@@ -14,7 +14,7 @@ import kotlinx.serialization.builtins.ListSerializer
 
 data class AppState(
     val orders: List<Order> = emptyList(),
-    val menu: MenuConfig = MenuConfig.DEFAULT,
+    val menu: MenuConfig = MenuConfig.Standard.menu,
     val isLoaded: Boolean = false,
     val message: String? = null,
     /** Set together with [message] when the snackbar should offer "Rückgängig" for a just-finished order. */
@@ -25,7 +25,7 @@ data class AppState(
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val orderRepo = JsonStore(application, "orders.json", ListSerializer(Order.serializer()), emptyList())
-    private val menuRepo  = JsonStore(application, "menu.json", MenuConfig.serializer(), MenuConfig.DEFAULT, pretty = true)
+    private val menuRepo  = JsonStore(application, "menu.json", MenuConfig.serializer(), MenuConfig.Standard.menu, pretty = true)
     private val printer   = Printer(application)
 
     private val prefs     = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -74,7 +74,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun testPrint() = runPrint(
-        (_state.value.menu.presets.firstOrNull() ?: Pizza("Margherita", MenuConfig.DEFAULT_SAUCE, linkedSetOf())).let { pizza ->
+        (_state.value.menu.presets.firstOrNull() ?: Pizza("Margherita", MenuConfig.Standard.sauce, linkedSetOf())).let { pizza ->
             Order(number = 42, customer = "Testgast", pizza = pizza, note = "Nur ein Testdruck", diet = _state.value.menu.dietOf(pizza))
         },
         "Testdruck (${_state.value.printStyle.label}) gesendet.",
@@ -162,7 +162,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun removeFunLink(link: FunLink) = updateMenu { it.withoutFunLink(link) }
 
     fun resetMenu() {
-        val newMenu = MenuConfig.DEFAULT
+        val newMenu = MenuConfig.Standard.menu
         _state.update { it.copy(menu = newMenu, message = "Standardmenü wiederhergestellt.") }
         viewModelScope.launch { menuRepo.save(newMenu) }
     }
