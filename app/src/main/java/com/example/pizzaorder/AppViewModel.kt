@@ -74,12 +74,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun testPrint() = runPrint(
-        Order(
-            number = 42,
-            customer = "Testgast",
-            pizza = _state.value.menu.presets.firstOrNull() ?: Pizza("Margherita", MenuConfig.DEFAULT_SAUCE, linkedSetOf()),
-            note = "Nur ein Testdruck",
-        ),
+        (_state.value.menu.presets.firstOrNull() ?: Pizza("Margherita", MenuConfig.DEFAULT_SAUCE, linkedSetOf())).let { pizza ->
+            Order(number = 42, customer = "Testgast", pizza = pizza, note = "Nur ein Testdruck", diet = _state.value.menu.dietOf(pizza))
+        },
         "Testdruck (${_state.value.printStyle.label}) gesendet.",
     )
 
@@ -91,7 +88,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         // ponytail: restarts at #001 after "Alle löschen"; persist a counter if numbers must stay unique all night
         val number = (_state.value.orders.maxOfOrNull { it.number } ?: 0) + 1
-        val order = Order(number = number, customer = cleanCustomer, pizza = pizza, note = note.trim())
+        val order = Order(number = number, customer = cleanCustomer, pizza = pizza, note = note.trim(), diet = _state.value.menu.dietOf(pizza))
 
         _state.update { it.copy(
             orders = listOf(order) + it.orders,
@@ -143,6 +140,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeTopping(topping: Topping) = updateMenu { it.withoutTopping(topping) }
+
+    fun setDiet(name: String, diet: Diet) = updateMenu { it.withDiet(name, diet) }
 
     fun addPreset(pizza: Pizza) {
         val clean = pizza.name.trim()

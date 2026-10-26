@@ -11,6 +11,10 @@ data class Sauce(val name: String)
 @Serializable
 data class Topping(val name: String)
 
+/** Ordered by strictness: a pizza gets the highest ordinal among its ingredients. */
+@Serializable
+enum class Diet(val label: String) { VEGAN("Vegan"), VEGETARIAN("Vegetarisch"), NONE("Nichts davon") }
+
 /** QR code on the printout: [url] is what it opens; [teaser] is only a label in Settings, not printed. */
 @Serializable
 data class FunLink(val teaser: String, val url: String)
@@ -37,7 +41,9 @@ data class Order(
     val customer: String,
     val pizza: Pizza,
     val note: String = "",
-    val completedAt: Long? = null
+    val completedAt: Long? = null,
+    // Snapshot at order time, so later menu edits don't relabel what the kitchen already got.
+    val diet: Diet = Diet.NONE,
 ) {
     fun isDone() = completedAt != null
     val formattedTime: String get() = SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(id))

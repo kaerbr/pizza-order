@@ -1,11 +1,13 @@
 package com.example.pizzaorder.ui
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -30,7 +32,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.outlined.Eco
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -53,11 +57,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import com.example.pizzaorder.Diet
 import com.example.pizzaorder.MenuConfig
 import com.example.pizzaorder.Pizza
 import com.example.pizzaorder.Sauce
@@ -88,6 +95,8 @@ fun OrderScreen(
     val pizzaName = remember(sauce, toppings) {
         menu.presets.find { it.sauce == sauce && it.toppings.toSet() == toppings.toSet() }?.name ?: CUSTOM_NAME
     }
+    val current = Pizza(pizzaName, sauce, toppings)
+    val diet = menu.dietOf(current)
 
     Column(modifier.fillMaxSize()) {
         Column(
@@ -114,12 +123,14 @@ fun OrderScreen(
                 }
 
                 Section("02", "Pizza wählen") {
-                    val tiles = menu.presets.map { it.name to it.description } + (CUSTOM_NAME to "Sauce und Belag frei wählen")
+                    // Eigenkreation only shows a diet while it's the one being built.
+                    val tiles = menu.presets.map { Triple(it.name, it.description, menu.dietOf(it)) } +
+                        Triple(CUSTOM_NAME, "Sauce und Belag frei wählen", if (pizzaName == CUSTOM_NAME) diet else Diet.NONE)
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         tiles.chunked(3).forEach { row ->
                             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                row.forEach { (name, desc) ->
-                                    PizzaCard(name, desc, pizzaName == name, Modifier.weight(1f).fillMaxHeight()) {
+                                row.forEach { (name, desc, tileDiet) ->
+                                    PizzaCard(name, desc, tileDiet, pizzaName == name, Modifier.weight(1f).fillMaxHeight()) {
                                         menu.presets.find { it.name == name }?.let { p ->
                                             sauceName = p.sauce.name; toppingNames = p.toppings.map { it.name }
                                         } ?: run { sauceName = ""; toppingNames = emptyList() } // Eigenkreation: start empty
@@ -134,7 +145,7 @@ fun OrderScreen(
                 Section("03", "Sauce") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.sauces.forEach { s ->
-                            Pill(s.name, s.name == sauceName) { sauceName = s.name }
+                            Pill(s.name, s.name == sauceName, diet = menu.dietOf(s.name)) { sauceName = s.name }
                         }
                     }
                 }
@@ -143,11 +154,12 @@ fun OrderScreen(
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.toppings.forEach { t ->
                             val selected = t.name in toppingNames
-                            Pill(t.name, selected, if (selected) Icons.Default.Check else Icons.Default.Add) {
+                            Pill(t.name, selected, if (selected) Icons.Default.Check else Icons.Default.Add, menu.dietOf(t.name)) {
                                 toppingNames = if (selected) toppingNames - t.name else toppingNames + t.name
                             }
                         }
                     }
+                    DietLegend()
                 }
 
                 Section("05", "Notiz für die Küche") {
@@ -175,7 +187,15 @@ fun OrderScreen(
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 Column(Modifier.weight(1f)) {
-                    Eyebrow("Deine Bestellung")
+                    // Fades "· Vegan" → "· Vegetarisch (Käse)" as guests add toppings, same ease as the button.
+                    val dietSuffix = when (diet) {
+                        Diet.VEGAN -> " · ${diet.label}"
+                        Diet.VEGETARIAN -> " · ${diet.label} (${menu.dietCulprits(current).joinToString()})"
+                        Diet.NONE -> ""
+                    }
+                    Crossfade(dietSuffix, animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing), label = "diet") {
+                        Eyebrow("Deine Bestellung$it")
+                    }
                     Text(
                         if (customer.isBlank()) pizzaName else "$pizzaName für ${customer.trim()}",
                         style = MaterialTheme.typography.headlineSmall,
@@ -198,7 +218,7 @@ fun OrderScreen(
                 val fill = MaterialTheme.colorScheme.primary
                 Button(
                     onClick = {
-                        onSubmit(customer, Pizza(pizzaName, sauce, toppings), note)
+                        onSubmit(customer, current, note)
                         customer = ""; note = ""
                         menu.presets.firstOrNull()?.let { p ->
                             sauceName = p.sauce.name; toppingNames = p.toppings.map { it.name }
@@ -242,6 +262,40 @@ internal fun Eyebrow(text: String, modifier: Modifier = Modifier) = Text(
     modifier = modifier,
 )
 
+// Filled leaf = vegan, outlined = vegetarian, nothing for the rest: the missing leaf is the signal.
+internal val Diet.icon: ImageVector?
+    get() = when (this) {
+        Diet.VEGAN -> Icons.Filled.Eco
+        Diet.VEGETARIAN -> Icons.Outlined.Eco
+        Diet.NONE -> null
+    }
+
+/** The `.diet` pill from design/index.html; renders nothing for [Diet.NONE]. */
+@Composable
+internal fun DietBadge(diet: Diet, modifier: Modifier = Modifier) {
+    val icon = diet.icon ?: return
+    Row(
+        modifier.border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(icon, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+        Text(diet.label.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, letterSpacing = 0.09.em)
+    }
+}
+
+@Composable
+private fun DietLegend() {
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        listOf(Diet.VEGAN, Diet.VEGETARIAN).forEach { d ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(d.icon!!, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                Text(d.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
 @Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(
     unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -261,7 +315,7 @@ private fun Section(step: String, title: String, content: @Composable () -> Unit
 }
 
 @Composable
-private fun PizzaCard(name: String, description: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun PizzaCard(name: String, description: String, diet: Diet, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Surface(
         onClick = onClick,
@@ -273,25 +327,30 @@ private fun PizzaCard(name: String, description: String, selected: Boolean, modi
         Column(Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(name, style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize))
             Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-            Surface(
-                shape = CircleShape,
-                color = if (selected) colors.primary else colors.surface,
-                border = if (selected) null else BorderStroke(1.5.dp, colors.outline),
-                modifier = Modifier.align(Alignment.End).size(22.dp),
-            ) {
-                if (selected) Icon(Icons.Default.Check, null, tint = colors.onPrimary, modifier = Modifier.padding(4.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                DietBadge(diet)
+                Spacer(Modifier.weight(1f))
+                Surface(
+                    shape = CircleShape,
+                    color = if (selected) colors.primary else colors.surface,
+                    border = if (selected) null else BorderStroke(1.5.dp, colors.outline),
+                    modifier = Modifier.size(22.dp),
+                ) {
+                    if (selected) Icon(Icons.Default.Check, null, tint = colors.onPrimary, modifier = Modifier.padding(4.dp))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun Pill(label: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
+private fun Pill(label: String, selected: Boolean, icon: ImageVector? = null, diet: Diet = Diet.NONE, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(label, style = MaterialTheme.typography.bodyLarge) },
         leadingIcon = icon?.let { { Icon(it, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
+        trailingIcon = diet.icon?.let { { Icon(it, diet.label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) } },
         shape = CircleShape,
         colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface),
         border = FilterChipDefaults.filterChipBorder(

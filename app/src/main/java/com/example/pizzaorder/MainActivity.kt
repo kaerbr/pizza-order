@@ -391,6 +391,7 @@ private fun SettingsScaffold(
             onRemoveSauce    = vm::removeSauce,
             onAddTopping     = vm::addTopping,
             onRemoveTopping  = vm::removeTopping,
+            onSetDiet        = vm::setDiet,
             onAddPreset      = vm::addPreset,
             onRemovePreset   = vm::removePreset,
             onResetMenu      = vm::resetMenu,

@@ -62,3 +62,9 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+// Unit tests gate every debug build, Android Studio's Run included: MenuConfigTest turns an invalid
+// MenuConfig.DEFAULT into a build error instead of a crash on app start.
+// ponytail: runs the whole (small) suite; up-to-date when nothing changed, so near-free on rebuilds.
+tasks.matching { it.name == "assembleDebug" }.configureEach { dependsOn("testDebugUnitTest") }
+// Print the exception message ("Ungültiges Menü: …") in the build output, not just its class name.
+tasks.withType<Test>().configureEach { testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL } }

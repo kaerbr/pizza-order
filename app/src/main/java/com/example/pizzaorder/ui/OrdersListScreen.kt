@@ -115,7 +115,10 @@ private fun OrderCard(
                     Text(order.formattedNumber, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 12.dp))
                     Text(order.customer, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
                 }
-                Text(order.pizza.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(order.pizza.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    DietBadge(order.diet)
+                }
                 Text(order.pizza.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (order.note.isNotBlank()) {
                     Text("„${order.note}“", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)

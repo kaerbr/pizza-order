@@ -18,7 +18,7 @@ enum class PrintStyle(val label: String, val description: String) {
             |[L]Gast[R]<b>${order.customer}</b>
             |[L]Zeit[R]${order.formattedTime}
             |[C]- - - - - - - - - - - - - - - -
-            |[L]<font size='tall'><b>1x ${order.pizza.name}</b></font>
+            |[L]<font size='tall'><b>1x ${order.pizza.name}</b></font>${dietLine(order)}
             |[L]   ${order.pizza.sauce.name}
             |${order.pizza.toppings.joinToString("\n") { "[L]   + ${it.name}" }}
             |${order.note.takeIf(String::isNotBlank)?.let { "[C]- - - - - - - - - - - - - - - -\n[L]<b>NOTIZ</b>\n[L]$it" } ?: ""}
@@ -42,7 +42,7 @@ enum class PrintStyle(val label: String, val description: String) {
             |[L]Gast[R]<b>${order.customer}</b>
             |[L]Zeit[R]${order.formattedTime}
             |[C]- - - - - - - - - - - - - - - -
-            |[L]<font size='tall'><b>1x ${order.pizza.name}</b></font>
+            |[L]<font size='tall'><b>1x ${order.pizza.name}</b></font>${dietLine(order)}
             |[L]   ${order.pizza.sauce.name}
             |${order.pizza.toppings.joinToString("\n") { "[L]   + ${it.name}" }}
             |${order.note.takeIf(String::isNotBlank)?.let { "[C]- - - - - - - - - - - - - - - -\n[L]<b>NOTIZ</b>\n[L]$it" } ?: ""}
@@ -230,3 +230,8 @@ private fun qrBlock(link: FunLink?) = link?.let {
     "[C]- - - - - - - - - - - - - - - -\n[C]Wartezeit? Scan mich!\n[C]<qrcode size='25'>${it.url}</qrcode>"
 } ?: ""
 
+
+// Under the pizza name so the kitchen grabs a clean board; nothing for Diet.NONE.
+// Leading "\n" instead of its own template line, so untagged pizzas don't print a blank line.
+private fun dietLine(order: Order) =
+    if (order.diet == Diet.NONE) "" else "\n[L]   <b>*** ${order.diet.label.uppercase()} ***</b>"

@@ -9,14 +9,19 @@ data class MenuConfig(
     val presets: LinkedHashSet<Pizza> = linkedSetOf(),
     // Default here (not just in DEFAULT) so menu.json files saved before this field existed get the links too.
     val funLinks: List<FunLink> = DEFAULT_FUN_LINKS,
+    // Keyed by ingredient name instead of a field on Sauce/Topping: those get rebuilt from names
+    // (OrderScreen) and compared by equality, a diet field would break every `in` check.
+    // Unlisted = Diet.NONE, so nothing is ever labelled vegan by accident.
+    val diets: Map<String, Diet> = DEFAULT_DIETS,
 ) {
+    // Lists every problem at once, so one failure shows all typos. MenuConfigTest runs this on DEFAULT
+    // before each debug build; a broken menu.json never gets here as a crash (JsonStore falls back to DEFAULT).
     init {
-        presets.forEach {
-            require(it.sauce in sauces) { "Pizza ${it.name} nutzt unbekannte Sauce: ${it.sauce.name}" }
-            it.toppings.forEach {
-                require(it in toppings) { "Pizza ${it.name} nutzt unbekannten Belag: ${it.name}" }
-            }
+        val problems = presets.flatMap { pizza ->
+            listOfNotNull(pizza.sauce.takeIf { it !in sauces }?.let { "Pizza \"${pizza.name}\": Sauce \"${it.name}\" fehlt in sauces" }) +
+                pizza.toppings.filter { it !in toppings }.map { "Pizza \"${pizza.name}\": Belag \"${it.name}\" fehlt in toppings" }
         }
+        require(problems.isEmpty()) { "Ungültiges Menü:\n" + problems.joinToString("\n") }
     }
 
     // 1. Creates ONE new LinkedHashSet with the current items
@@ -61,7 +66,30 @@ data class MenuConfig(
 
     fun withoutFunLink(link: FunLink) = copy(funLinks = funLinks - link)
 
+    fun withDiet(name: String, diet: Diet) = copy(diets = diets + (name to diet))
+
+    fun dietOf(name: String) = diets[name] ?: Diet.NONE
+
+    /** As strict as its least strict ingredient; a bare crust counts as vegan. */
+    fun dietOf(pizza: Pizza) = ingredients(pizza).maxOfOrNull { dietOf(it) } ?: Diet.VEGAN
+
+    /** The ingredients that set [pizza]'s diet, e.g. "Käse" on a Margherita. Empty when vegan. */
+    fun dietCulprits(pizza: Pizza): List<String> {
+        val diet = dietOf(pizza)
+        return if (diet == Diet.VEGAN) emptyList() else ingredients(pizza).filter { dietOf(it) == diet }
+    }
+
+    // Blank sauce = Eigenkreation before a sauce is picked.
+    private fun ingredients(pizza: Pizza) = (listOf(pizza.sauce.name) + pizza.toppings.map { it.name }).filter(String::isNotBlank)
+
     companion object {
+        // Default here (like funLinks) so menu.json files from before tagging get labels too.
+        // Everything vegan for now (vegan cheese, pesto and salami); retag in Settings when that changes.
+        val DEFAULT_DIETS = listOf(
+            "Tomate", "Pesto al basilico",
+            "Zwiebeln", "Knoblauch", "Salami", "Oliven", "Käse", "Rucola", "Basilikum", "Kirschtomaten", "Pinienkerne",
+        ).associateWith { Diet.VEGAN }
+
         // YouTube *search* links on purpose: they never go dead like single video IDs do.
         val DEFAULT_FUN_LINKS = listOf(
             FunLink("Mathe beweist: fair teilen!",       "https://de.wikipedia.org/wiki/Pizza-Theorem"),

@@ -1,6 +1,7 @@
 package com.example.pizzaorder.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -55,11 +57,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.pizzaorder.Diet
 import com.example.pizzaorder.FunLink
 import com.example.pizzaorder.MenuConfig
 import com.example.pizzaorder.Order
@@ -79,6 +83,7 @@ fun SettingsScreen(
     onRemoveSauce: (Sauce) -> Unit,
     onAddTopping: (String) -> Unit,
     onRemoveTopping: (Topping) -> Unit,
+    onSetDiet: (name: String, Diet) -> Unit,
     onAddPreset: (Pizza) -> Unit,
     onRemovePreset: (String) -> Unit,
     onResetMenu: () -> Unit,
@@ -162,13 +167,19 @@ fun SettingsScreen(
                     }
 
                     1 -> {
+                        val cycleDiet = { name: String -> onSetDiet(name, menu.dietOf(name).next()) }
+                        Text(
+                            "Tippen auf eine Zutat wechselt: Vegan → Vegetarisch → Nichts davon. ✕ löscht sie.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Section(title = "Saucen") {
-                            ChipList(items = menu.sauces.toList(), onRemove = onRemoveSauce, labelProvider = { it.name })
+                            ChipList(items = menu.sauces.toList(), onRemove = onRemoveSauce, labelProvider = { it.name }, dietOf = { menu.dietOf(it.name) }, onCycleDiet = { cycleDiet(it.name) })
                             AddRow(placeholder = "Neue Sauce", onAdd = onAddSauce)
                         }
 
                         Section(title = "Beläge") {
-                            ChipList(items = menu.toppings.toList(), onRemove = onRemoveTopping, labelProvider = { it.name })
+                            ChipList(items = menu.toppings.toList(), onRemove = onRemoveTopping, labelProvider = { it.name }, dietOf = { menu.dietOf(it.name) }, onCycleDiet = { cycleDiet(it.name) })
                             AddRow(placeholder = "Neuer Belag", onAdd = onAddTopping)
                         }
 
@@ -251,6 +262,8 @@ fun SettingsScreen(
     }
 }
 
+private fun Diet.next() = Diet.entries[(ordinal + 1) % Diet.entries.size]
+
 private enum class Confirm(val title: String, val text: String, val action: String) {
     ClearOrders("Alle Bestellungen löschen?", "Das kann nicht rückgängig gemacht werden.", "Löschen"),
     ResetMenu("Standardmenü wiederherstellen?", "Saucen, Beläge, Pizzen und QR-Links werden ersetzt. Bestellungen bleiben erhalten.", "Wiederherstellen"),
@@ -316,7 +329,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun <T> ChipList(items: List<T>, onRemove: (T) -> Unit, labelProvider: (T) -> String) {
+private fun <T> ChipList(items: List<T>, onRemove: (T) -> Unit, labelProvider: (T) -> String, dietOf: (T) -> Diet, onCycleDiet: (T) -> Unit) {
     if (items.isEmpty()) {
         Text(
             "(noch keine)",
@@ -330,14 +343,17 @@ private fun <T> ChipList(items: List<T>, onRemove: (T) -> Unit, labelProvider: (
         verticalArrangement   = Arrangement.spacedBy(8.dp),
     ) {
         items.forEach { item ->
+            val diet = dietOf(item)
             AssistChip(
-                onClick = { onRemove(item) },
+                onClick = { onCycleDiet(item) },
                 label = { Text(labelProvider(item)) },
+                leadingIcon = diet.icon?.let { { Icon(it, diet.label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) } },
                 trailingIcon = {
+                    // Own click target: the chip body cycles the diet, only the ✕ deletes.
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Löschen",
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.clip(CircleShape).clickable { onRemove(item) }.padding(2.dp).size(16.dp),
                     )
                 },
                 colors = AssistChipDefaults.assistChipColors(
