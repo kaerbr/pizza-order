@@ -145,7 +145,7 @@ enum class PrintStyle(val label: String, val description: String) {
     },
 
     // Compact receipt + the QR code to something pizza-silly.
-    Qr("QR-Lacher", "Kurzer Beleg mit QR-Code zu einem Pizza-Witz zum Scannen") {
+    Qr("QR-Lacher", "Kurzer Ausdruck mit QR-Code zu einem Pizza-Witz zum Scannen") {
         override fun format(order: Order, link: FunLink?) = """
             |[C]<b>P I Z Z A   P A R T Y</b>
             |[C]================================
