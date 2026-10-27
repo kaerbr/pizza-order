@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.pizzaorder"
+    namespace = "io.github.kaerbr.pizzaorder"
     compileSdk {
         version = release(37) {
             minorApiLevel = 1
@@ -13,7 +13,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.pizzaorder"
+        applicationId = "io.github.kaerbr.pizzaorder"
         minSdk = 26
         targetSdk = 37
         versionCode = 1
