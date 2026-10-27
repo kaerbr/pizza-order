@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# semantic-release: push the release commit, create the release, comment on released issues/PRs.
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # semantic-release needs all tags and commits
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+
+      # Runs the unit tests too (see app/build.gradle.kts).
+      - run: ./gradlew assembleDebug
+
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_FILE"
+          npx -y -p semantic-release@25 -p @semantic-release/changelog@7 -p @semantic-release/git@11 -p @semantic-release/exec@7 semantic-release

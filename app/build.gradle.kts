@@ -16,14 +16,29 @@ android {
         applicationId = "io.github.kaerbr.pizzaorder"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
+        // versionName is rewritten by semantic-release (.releaserc.yaml); versionCode follows it: 1.2.3 -> 10203.
         versionName = "1.0.0"
+        versionCode = versionName!!.split(".").fold(0) { code, part -> code * 100 + part.toInt() }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Only CI has the release keystore (GitHub secrets); local release builds stay unsigned.
+    val keystoreFile = System.getenv("KEYSTORE_FILE")
+    if (keystoreFile != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystoreFile)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystoreFile != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

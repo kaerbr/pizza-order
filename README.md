@@ -29,6 +29,16 @@ Android Studio öffnen, `app` starten. Vor jedem Debug-Build laufen die Unit-Tes
 
 Das Standard-Menü steht in `MenuConfig.kt` (`MenuConfig.Standard`).
 
+## Releases
+
+Commit-Messages folgen [Conventional Commits](https://www.conventionalcommits.org/de/). Bei jedem Push auf
+`main` baut und testet GitHub Actions die App; `feat:`/`fix:`-Commits erzeugen per semantic-release eine
+neue Version mit `CHANGELOG.md`-Eintrag und einem GitHub Release samt signierter APK. Die Version in
+`app/build.gradle.kts` setzt semantic-release, nicht von Hand ändern.
+
+Signiert wird mit dem Release-Keystore aus den Repo-Secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`,
+`KEY_ALIAS` und `KEY_PASSWORD`. Lokale Builds sind davon nicht betroffen.
+
 ## Lizenz
 
 [MIT](LICENSE)

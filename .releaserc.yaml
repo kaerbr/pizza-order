@@ -1,0 +1,18 @@
+branches:
+  - main
+plugins:
+  - "@semantic-release/commit-analyzer"
+  - "@semantic-release/release-notes-generator"
+  - "@semantic-release/changelog"
+  - - "@semantic-release/exec"
+    - prepareCmd: >-
+        sed -i 's/versionName = "[^"]*"/versionName = "${nextRelease.version}"/' app/build.gradle.kts
+        && ./gradlew assembleRelease
+  - - "@semantic-release/git"
+    - assets:
+        - CHANGELOG.md
+        - app/build.gradle.kts
+  - - "@semantic-release/github"
+    - assets:
+        - path: app/build/outputs/apk/release/app-release.apk
+          name: pizza-order-${nextRelease.version}.apk
