@@ -1,11 +1,12 @@
 package io.github.kaerbr.pizzaorder.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -39,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,6 +52,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
@@ -69,11 +73,17 @@ import androidx.compose.ui.unit.sp
 import io.github.kaerbr.pizzaorder.Confirmation
 import io.github.kaerbr.pizzaorder.PrintStatus
 import io.github.kaerbr.pizzaorder.Printout
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 // Thermal paper stays paper in every palette and in dark mode: it's the printout, not app chrome.
 private val Paper = Color(0xFFFFFDF7)
 private val Ink = Color(0xFF1C1B1A)
+
+/** Paper speed of the party printer (MUNBYN IMP001): the slip feeds in as fast as the real one comes out. */
+private const val PRINT_SPEED_MM_PER_S = 90f
+/** Full paper width; the printer prints on [Printout.PAPER_MM] of it. */
+private const val PAPER_WIDTH_MM = 58f
 
 /** How long the slip stays after a successful print before it rolls back up. */
 private const val SHOW_AFTER_PRINT_MS = 2_500L
@@ -123,8 +133,8 @@ fun OrderConfirmation(confirmation: Confirmation?, printStatus: PrintStatus?, on
     }
     AnimatedVisibility(
         confirmation != null,
-        // Slow linear-ish feed in, quick roll back up: it should read as paper, not as a dialog.
-        enter = slideInVertically(tween(900, easing = LinearOutSlowInEasing)) { -it },
+        // Feeding in is the slip's own job (paper speed needs its height); rolling back up is quick.
+        enter = EnterTransition.None,
         exit = slideOutVertically(tween(350)) { -it } + fadeOut(tween(350)),
     ) {
         // Long styles (QR code, ASCII art) can outgrow the screen: the whole slip scrolls then.
@@ -143,9 +153,27 @@ fun OrderConfirmation(confirmation: Confirmation?, printStatus: PrintStatus?, on
 @Composable
 private fun Slip(markup: String) {
     val slipWidth = 400.dp
-    val margin = slipWidth * ((58f - Printout.PAPER_MM) / 2 / 58f)
+    val margin = slipWidth * ((PAPER_WIDTH_MM - Printout.PAPER_MM) / 2 / PAPER_WIDTH_MM)
+
+    // Paper feed: slides down from above at the printer's speed, so a long slip takes longer, like on paper.
+    val feed = remember { Animatable(0f) }
+    var heightPx by remember { mutableIntStateOf(0) }
+    val slipWidthPx = with(LocalDensity.current) { slipWidth.toPx() }
+    LaunchedEffect(heightPx > 0) {
+        if (heightPx == 0) return@LaunchedEffect
+        val paperMm = heightPx / slipWidthPx * PAPER_WIDTH_MM
+        feed.animateTo(1f, tween((paperMm / PRINT_SPEED_MM_PER_S * 1000).roundToInt(), easing = LinearEasing))
+    }
+
     BoxWithConstraints(
         Modifier
+            .onSizeChanged { heightPx = it.height }
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                layout(placeable.width, placeable.height) {
+                    placeable.placeRelative(0, ((feed.value - 1f) * placeable.height).roundToInt())
+                }
+            }
             .width(slipWidth)
             .shadow(16.dp, TornEdge)
             .background(Paper, TornEdge)
