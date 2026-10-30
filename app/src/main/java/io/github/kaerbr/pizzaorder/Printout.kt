@@ -7,9 +7,10 @@ package io.github.kaerbr.pizzaorder
  */
 object Printout {
 
-    /** Chars per line at normal size, as configured in [Printer]. */
+    // Shared with [Printer], so paper and screen agree on the line width.
+    /** Chars per line at normal size. */
     const val LINE_CHARS = 32
-    /** Printable paper width in mm, as configured in [Printer]; QR sizes are in mm too. */
+    /** Printable paper width in mm; QR sizes are in mm too. */
     const val PAPER_MM = 48f
 
     enum class Align { Left, Center, Right }

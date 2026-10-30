@@ -223,7 +223,7 @@ enum class PrintStyle(val label: String, val description: String) {
 
 // "Gast ........... Laura" filled to the 32-char line; overlong values just wrap.
 internal fun dotRow(label: String, value: String) =
-    "[L]$label ${".".repeat((32 - label.length - value.length - 2).coerceAtLeast(1))} <b>$value</b>"
+    "[L]$label ${".".repeat((Printout.LINE_CHARS - label.length - value.length - 2).coerceAtLeast(1))} <b>$value</b>"
 
 // "Scan me" footer; empty when Settings has no QR links.
 private fun qrBlock(link: FunLink?) = link?.let {

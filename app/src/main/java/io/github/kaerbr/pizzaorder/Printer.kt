@@ -50,7 +50,7 @@ class Printer(private val context: Context) {
             // If umlauts come out garbled on YOUR printer, try 0 (USA/CP437) or 2 (CP850).
             val printer = EscPosPrinter(
                 connection,
-                203, 48f, 32,
+                203, Printout.PAPER_MM, Printout.LINE_CHARS,
                 EscPosCharsetEncoding("windows-1252", 16),
             )
             try {
