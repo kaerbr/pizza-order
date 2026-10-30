@@ -33,12 +33,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -59,6 +58,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
@@ -76,7 +76,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.DoughStock
 import kotlinx.coroutines.launch
@@ -144,44 +143,61 @@ internal fun PeelDock(order: DockOrder, number: Int, onSubmit: () -> Unit, modif
         else -> 2
     }
 
-    Column(modifier) {
-        HorizontalDivider(color = colors.primary.copy(alpha = 0.4f))
-        Surface(color = colors.primaryContainer) {
-            Column(
-                Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Column(Modifier.weight(1f)) {
-                        // Fades "· Vegan" → "· Vegetarisch (Käse)" as guests add toppings.
-                        Crossfade(order.dietLabel(), animationSpec = ease(), label = "diet") { diet ->
-                            Eyebrow("Bon #%03d".format(number) + (diet?.let { " · $it" } ?: ""), maxLines = 1)
-                        }
-                        Text(
-                            when {
-                                order.pizzaName == null -> "Noch keine Pizza gewählt"
-                                !order.hasName -> order.pizzaName
-                                else -> "${order.pizzaName} für ${order.customer.trim()}"
-                            },
-                            style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+    // A floating card in nearly the page's own tone, set apart by a hairline and a soft shadow: the tinted
+    // full-width band it replaces stood out too hard against the light form.
+    val card = RoundedCornerShape(28.dp)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 12.dp)
+            .shadow(12.dp, card, ambientColor = colors.onSurface.copy(alpha = 0.12f), spotColor = colors.onSurface.copy(alpha = 0.25f))
+            .background(colors.surface, card)
+            .border(1.dp, colors.outline.copy(alpha = 0.7f), card)
+            .padding(start = 18.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(Modifier.weight(1f)) {
+                // Dough rides in this line instead of a third check; it's what flashes when sold out.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Fades "· Vegan" → "· Vegetarisch (Käse)" as guests add toppings.
+                    Crossfade(
+                        order.dietLabel(), animationSpec = ease(), label = "diet",
+                        modifier = Modifier.weight(1f, fill = false),
+                    ) { diet ->
+                        Eyebrow("Bon #%03d".format(number) + (diet?.let { " · $it" } ?: ""), maxLines = 1)
+                    }
+                    order.dough?.let { d ->
+                        Eyebrow(
+                            if (d.isSoldOut) " · Ausverkauft" else " · Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
+                            maxLines = 1,
+                            color = lerp(
+                                if (d.isSoldOut || d.isLow) colors.error else colors.onSurfaceVariant,
+                                colors.error, if (missing == 2) flash.value else 0f,
+                            ),
                         )
                     }
-                    StepCheck("Name", order.hasName, if (missing == 0) flash.value else 0f)
-                    StepCheck("Sauce", order.hasSauce, if (missing == 1) flash.value else 0f)
-                    order.dough?.let { d ->
-                        StepCheck(if (d.isSoldOut) "Ausverkauft" else "Teig ${d.available}", !d.isSoldOut && !d.isLow, if (missing == 2) flash.value else 0f)
-                    }
                 }
-
-                PeelTrack(
-                    order = order,
-                    wiggle = wiggle.value,
-                    onLocked = ::nudge,
-                    onSubmit = { if (complete) submit() },
+                Text(
+                    when {
+                        order.pizzaName == null -> "Noch keine Pizza gewählt"
+                        !order.hasName -> order.pizzaName
+                        else -> "${order.pizzaName} für ${order.customer.trim()}"
+                    },
+                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
+            StepCheck("Name", order.hasName, if (missing == 0) flash.value else 0f)
+            StepCheck("Sauce", order.hasSauce, if (missing == 1) flash.value else 0f)
         }
+
+        PeelTrack(
+            order = order,
+            wiggle = wiggle.value,
+            onLocked = ::nudge,
+            onSubmit = { if (complete) submit() },
+        )
     }
 }
 
@@ -192,7 +208,12 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
     val density = LocalDensity.current
     val haptics = LocalHapticFeedback.current
     val complete by rememberUpdatedState(order.complete)
-    val border by animateColorAsState(if (order.complete) colors.primary else colors.outline, ease(), label = "trackBorder")
+    val trackColor by animateColorAsState(
+        (if (order.complete) colors.primary.copy(alpha = 0.09f) else colors.onSurface.copy(alpha = 0.05f)).compositeOver(colors.surface),
+        ease(), label = "track",
+    )
+    // Soft accent ring on the pizza once it can go: "grab me".
+    val ring by animateFloatAsState(if (order.complete) 1f else 0f, ease(), label = "knobRing")
     // Embers smoulder while locked, burn once the order is complete and flare as the pizza comes close.
     val glowBase by animateFloatAsState(if (order.complete) 0.7f else 0.3f, ease(), label = "ovenGlow")
     val fire = rememberInfiniteTransition(label = "fire")
@@ -204,8 +225,7 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
             .fillMaxWidth()
             .height(TrackHeight)
             .clip(CircleShape)
-            .background(colors.surface)
-            .border(1.5.dp, border, CircleShape),
+            .background(trackColor),
     ) {
         // Knob and oven are the same size, each concentric with one round end of the track.
         // Knob rests left; at maxX it touches the oven, and past 85% of that letting go orders.
@@ -239,7 +259,7 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
             Modifier.fillMaxSize().drawBehind {
                 val w = x.value + TrackInset.toPx() + KnobSize.toPx() / 2
                 drawRoundRect(
-                    Brush.horizontalGradient(listOf(fill.copy(alpha = 0.15f), fill.copy(alpha = 0.45f)), endX = w),
+                    Brush.horizontalGradient(listOf(fill.copy(alpha = 0.1f), fill.copy(alpha = 0.38f)), endX = w),
                     size = Size(w, size.height),
                     cornerRadius = CornerRadius(size.height / 2),
                     alpha = (progress() * 6f).coerceAtMost(1f),
@@ -273,6 +293,7 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
         )
 
         Oven(
+            rim = colors.onSurface.copy(alpha = 0.15f),
             glow = { (glowBase + progress() * 0.3f).coerceAtMost(1f) },
             flicker = flicker,
             modifier = Modifier.align(Alignment.CenterEnd).padding(end = TrackInset).size(KnobSize),
@@ -287,6 +308,7 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
                 .size(KnobSize)
                 .shadow(4.dp, CircleShape)
                 .background(colors.surface, CircleShape)
+                .border(2.dp, colors.primary.copy(alpha = 0.55f * ring), CircleShape)
                 .draggable(
                     rememberDraggableState { delta ->
                         scope.launch {
@@ -324,10 +346,12 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
 
 /** A round wood-fired oven seen from the front: dark dome, arched mouth with embers inside. */
 @Composable
-private fun Oven(glow: () -> Float, flicker: Float, modifier: Modifier = Modifier) {
+private fun Oven(rim: Color, glow: () -> Float, flicker: Float, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val r = size.minDimension / 2
         drawCircle(Brush.radialGradient(listOf(Color(0xFF4A3328), Color(0xFF261A15)), center, r), r)
+        // Hairline rim: in dark mode the dark oven otherwise melts into the track.
+        drawCircle(rim, r - 0.5.dp.toPx(), style = Stroke(1.dp.toPx()))
         // Arched mouth, sitting low like a real oven door: straight sides, round top.
         val w = r * 1.2f
         val h = r * 0.95f
@@ -356,27 +380,25 @@ private fun Oven(glow: () -> Float, flicker: Float, modifier: Modifier = Modifie
 @Composable
 private fun StepCheck(label: String, ok: Boolean, flash: Float) {
     val colors = MaterialTheme.colorScheme
-    val bg by animateColorAsState(if (ok) colors.tertiaryContainer else Color.Transparent, ease(), label = "checkBg")
-    val ink by animateColorAsState(if (ok) colors.onTertiaryContainer else colors.onSurfaceVariant, ease(), label = "checkInk")
-    val line by animateColorAsState(if (ok) Color.Transparent else colors.onSurfaceVariant, ease(), label = "checkLine")
+    val dot by animateColorAsState(if (ok) colors.onTertiaryContainer else Color.Transparent, ease(), label = "stepDot")
+    val line by animateColorAsState(if (ok) colors.onTertiaryContainer else colors.onSurfaceVariant.copy(alpha = 0.55f), ease(), label = "stepLine")
+    val ink by animateColorAsState(if (ok) colors.onSurface else colors.onSurfaceVariant, ease(), label = "stepInk")
     // flash 0..1 blends towards the error colour while a locked pizza gets pressed.
-    val shape = CircleShape
-    Row(
-        Modifier
-            .clip(shape)
-            .background(lerp(bg, colors.error, flash), shape)
-            .border(1.dp, lerp(line, colors.error, flash), shape)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        if (ok) Icon(Icons.Default.Check, null, Modifier.size(14.dp), tint = ink)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(
+            Modifier
+                .size(18.dp)
+                .background(lerp(dot, colors.error.copy(alpha = 0.18f), flash), CircleShape)
+                .border(1.5.dp, lerp(line, colors.error, flash), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (ok) Icon(Icons.Default.Check, null, Modifier.size(12.dp), tint = colors.surface)
+        }
         Text(
-            label.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
+            label,
+            style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.06.em,
-            color = lerp(ink, colors.onError, flash),
+            color = lerp(ink, colors.error, flash),
             maxLines = 1,
         )
     }
