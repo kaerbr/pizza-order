@@ -193,7 +193,7 @@ fun OrderScreen(
         HorizontalDivider()
         Surface(color = MaterialTheme.colorScheme.surface) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
             ) {
@@ -204,8 +204,21 @@ fun OrderScreen(
                         Diet.VEGETARIAN -> " · ${diet.label} (${menu.dietCulprits(current).joinToString()})"
                         Diet.NONE -> ""
                     }
-                    Crossfade(dietSuffix, animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing), label = "diet") {
-                        Eyebrow("Deine Bestellung$it")
+                    // Dough stock rides in the eyebrow line instead of a third line under the summary.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Crossfade(
+                            dietSuffix, animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing), label = "diet",
+                            modifier = Modifier.weight(1f, fill = false),
+                        ) {
+                            Eyebrow("Deine Bestellung$it", maxLines = 1)
+                        }
+                        menu.dough?.let { d ->
+                            Eyebrow(
+                                if (d.isSoldOut) " · Ausverkauft" else " · Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
+                                maxLines = 1,
+                                color = if (d.isSoldOut || d.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     Text(
                         when {
@@ -213,18 +226,9 @@ fun OrderScreen(
                             customer.isBlank() -> pizzaName
                             else -> "$pizzaName für ${customer.trim()}"
                         },
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
-                    // Under the summary, not its own Row child: next to the 280dp button it squeezed the summary
-                    // to zero width on phones, and the wrapped text pushed the whole form off screen.
-                    menu.dough?.let { d ->
-                        Text(
-                            if (d.isSoldOut) "Ausverkauft" else "Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (d.isSoldOut || d.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
                 // Required steps: name and sauce (no toppings is fine, Marinara-style).
                 // The button fills from the left as they get done and only enables when all are.
@@ -255,7 +259,7 @@ fun OrderScreen(
                         disabledContainerColor = Color.Transparent, disabledContentColor = contentColor,
                     ),
                     modifier = Modifier
-                        .heightIn(min = 52.dp).widthIn(min = 260.dp)
+                        .heightIn(min = 48.dp).widthIn(min = 260.dp)
                         .clip(shape)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .drawBehind { drawRect(fill.copy(alpha = fillAlpha), size = size.copy(width = size.width * progress)) },
@@ -279,11 +283,18 @@ fun OrderScreen(
 }
 
 @Composable
-internal fun Eyebrow(text: String, modifier: Modifier = Modifier) = Text(
+internal fun Eyebrow(
+    text: String,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) = Text(
     text.uppercase(),
     style = MaterialTheme.typography.labelMedium,
-    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    color = color,
     fontWeight = FontWeight.SemiBold,
+    maxLines = maxLines,
+    overflow = TextOverflow.Ellipsis,
     modifier = modifier,
 )
 
