@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Print
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -46,6 +45,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.kaerbr.pizzaorder.Order
+import io.github.kaerbr.pizzaorder.PrintStatus
 import kotlinx.coroutines.delay
 
 @Composable
@@ -53,6 +53,7 @@ fun OrdersListScreen(
     orders: List<Order>,
     onToggleDone: (Order) -> Unit,
     onReprint: (Order) -> Unit,
+    prints: Map<Long, PrintStatus> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
     // "Alle löschen" lives in the locked admin panel, not here where guests can reach it.
@@ -76,13 +77,13 @@ fun OrdersListScreen(
 
             if (sortedPending.isNotEmpty()) item { SectionRibbon("Offen (${sortedPending.size})", Modifier.animateItem()) }
             items(sortedPending, key = { it.id }) { order ->
-                OrderCard(order, now, { onToggleDone(order) }, { onReprint(order) }, Modifier.animateItem())
+                OrderCard(order, now, { onToggleDone(order) }, { onReprint(order) }, prints[order.id], Modifier.animateItem())
             }
 
             if (sortedDone.isNotEmpty()) {
                 item { SectionRibbon("Fertig (${sortedDone.size})", Modifier.animateItem()) }
                 items(sortedDone, key = { it.id }) { order ->
-                    OrderCard(order, now, { onToggleDone(order) }, { onReprint(order) }, Modifier.animateItem())
+                    OrderCard(order, now, { onToggleDone(order) }, { onReprint(order) }, prints[order.id], Modifier.animateItem())
                 }
             }
         }
@@ -95,6 +96,7 @@ private fun OrderCard(
     now: Long,
     onToggleDone: () -> Unit,
     onReprint: () -> Unit,
+    printStatus: PrintStatus?,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -133,15 +135,21 @@ private fun OrderCard(
                     style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(end = ButtonDefaults.ContentPadding.calculateEndPadding(LocalLayoutDirection.current)),
                 )
+                // The button reports its own print: "Druckt…", a brief "Gedruckt", or red until retried.
+                val failed = printStatus is PrintStatus.Failed
                 OutlinedButton(
                     onClick = onReprint,
+                    enabled = printStatus != PrintStatus.Printing,
                     modifier = Modifier.padding(top = 8.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    border = BorderStroke(1.dp, if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    ),
                 ) {
-                    Icon(Icons.Default.Print, null, Modifier.size(17.dp))
+                    Icon(printStatus.icon, null, Modifier.size(17.dp))
                     Spacer(Modifier.width(7.dp))
-                    Text("Nachdrucken", fontWeight = FontWeight.SemiBold)
+                    Text(printStatus.label("Nachdrucken"), fontWeight = FontWeight.SemiBold)
                 }
             }
         }

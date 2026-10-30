@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -70,7 +69,9 @@ import io.github.kaerbr.pizzaorder.MenuConfig
 import io.github.kaerbr.pizzaorder.Order
 import io.github.kaerbr.pizzaorder.Pizza
 import io.github.kaerbr.pizzaorder.Sauce
+import io.github.kaerbr.pizzaorder.PrintStatus
 import io.github.kaerbr.pizzaorder.PrintStyle
+import io.github.kaerbr.pizzaorder.isWebLink
 import io.github.kaerbr.pizzaorder.Topping
 
 private val ADMIN_TABS = listOf("Übersicht", "Menü", "Ausdruck", "QR-Links")
@@ -93,6 +94,7 @@ fun SettingsScreen(
     printStyle: PrintStyle,
     onPrintStyle: (PrintStyle) -> Unit,
     onTestPrint: () -> Unit,
+    testPrintStatus: PrintStatus?,
     onAddFunLink: (teaser: String, url: String) -> Unit,
     onRemoveFunLink: (FunLink) -> Unit,
     modifier: Modifier = Modifier,
@@ -163,7 +165,7 @@ fun SettingsScreen(
                         }
                         Section(title = "Drucker") {
                             Text("Ausdruck-Design: ${printStyle.label}", style = MaterialTheme.typography.bodyLarge)
-                            TestPrintButton(onTestPrint)
+                            TestPrintButton(onTestPrint, testPrintStatus)
                         }
                         Section(title = "Gefahrenzone") {
                             DangerButton("Alle Bestellungen löschen", Icons.Default.Delete) { confirm = Confirm.ClearOrders }
@@ -179,7 +181,7 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Section(title = "Saucen") {
-                            ChipList(items = menu.sauces.toList(), onRemove = onRemoveSauce, labelProvider = { it.name }, dietOf = { menu.dietOf(it.name) }, onCycleDiet = { cycleDiet(it.name) })
+                            ChipList(items = menu.sauces.toList(), onRemove = onRemoveSauce.takeIf { menu.sauces.size > 1 }, labelProvider = { it.name }, dietOf = { menu.dietOf(it.name) }, onCycleDiet = { cycleDiet(it.name) })
                             AddRow(placeholder = "Neue Sauce", onAdd = onAddSauce)
                         }
 
@@ -235,7 +237,7 @@ fun SettingsScreen(
                                 }
                             }
                         }
-                        TestPrintButton(onTestPrint)
+                        TestPrintButton(onTestPrint, testPrintStatus)
                     }
 
                     else -> Section(title = "QR-Links (Beleg & QR-Lacher)") {
@@ -290,15 +292,22 @@ private fun StatTile(label: String, value: Int, modifier: Modifier) {
 }
 
 @Composable
-private fun TestPrintButton(onTestPrint: () -> Unit) {
-    OutlinedButton(
-        onClick = onTestPrint,
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Icon(Icons.Default.Print, null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Testdruck")
+private fun TestPrintButton(onTestPrint: () -> Unit, status: PrintStatus?) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        OutlinedButton(
+            onClick = onTestPrint,
+            enabled = status != PrintStatus.Printing,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(status.icon, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(status.label("Testdruck"))
+        }
+        // Here, of all places, the reason matters: this is where the printer gets set up.
+        if (status is PrintStatus.Failed) {
+            Text(status.reason, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+        }
     }
 }
 
@@ -371,7 +380,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun <T> ChipList(items: List<T>, onRemove: (T) -> Unit, labelProvider: (T) -> String, dietOf: (T) -> Diet, onCycleDiet: (T) -> Unit) {
+private fun <T> ChipList(items: List<T>, onRemove: ((T) -> Unit)?, labelProvider: (T) -> String, dietOf: (T) -> Diet, onCycleDiet: (T) -> Unit) {
     if (items.isEmpty()) {
         Text(
             "(noch keine)",
@@ -390,14 +399,15 @@ private fun <T> ChipList(items: List<T>, onRemove: (T) -> Unit, labelProvider: (
                 onClick = { onCycleDiet(item) },
                 label = { Text(labelProvider(item)) },
                 leadingIcon = diet.icon?.let { { Icon(it, diet.label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) } },
-                trailingIcon = {
+                // No ✕ when removing isn't allowed (the last sauce).
+                trailingIcon = onRemove?.let { remove -> {
                     // Own click target: the chip body cycles the diet, only the ✕ deletes.
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Löschen",
-                        modifier = Modifier.clip(CircleShape).clickable { onRemove(item) }.padding(2.dp).size(16.dp),
+                        modifier = Modifier.clip(CircleShape).clickable { remove(item) }.padding(2.dp).size(16.dp),
                     )
-                },
+                } },
                 colors = AssistChipDefaults.assistChipColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 ),
@@ -441,6 +451,7 @@ private fun AddRow(placeholder: String, onAdd: (String) -> Unit) {
 private fun AddLinkRow(onAdd: (teaser: String, url: String) -> Unit) {
     var teaser by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
+    val urlInvalid = url.isNotBlank() && !isWebLink(url)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value = teaser,
@@ -450,11 +461,14 @@ private fun AddLinkRow(onAdd: (teaser: String, url: String) -> Unit) {
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Top-aligned: the error line under the field would otherwise push the button off its row.
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
                 placeholder = { Text("https://…") },
+                isError = urlInvalid,
+                supportingText = if (urlInvalid) { { Text("Muss mit http:// oder https:// beginnen") } } else null,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 shape = RoundedCornerShape(10.dp),
@@ -462,7 +476,7 @@ private fun AddLinkRow(onAdd: (teaser: String, url: String) -> Unit) {
             )
             Button(
                 onClick = { onAdd(teaser, url); teaser = ""; url = "" },
-                enabled = url.isNotBlank(),
+                enabled = url.isNotBlank() && !urlInvalid,
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.height(56.dp),
             ) {
