@@ -27,7 +27,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -64,6 +66,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.MenuConfig
 import io.github.kaerbr.pizzaorder.Pizza
@@ -347,22 +350,22 @@ private fun PizzaCard(name: String, description: String, diet: Diet, selected: B
         color = if (selected) colors.primaryContainer else colors.surface,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) colors.primary else colors.outline),
     ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            // One line each: at three columns "Eigenkreation" used to break mid-word and stretch the whole row.
-            Text(name, style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize * 1.15f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                DietBadge(diet)
-                Spacer(Modifier.weight(1f))
-                Surface(
-                    shape = CircleShape,
-                    color = if (selected) colors.primary else colors.surface,
-                    border = if (selected) null else BorderStroke(1.5.dp, colors.outline),
-                    modifier = Modifier.size(22.dp),
-                ) {
-                    if (selected) Icon(Icons.Default.Check, null, tint = colors.onPrimary, modifier = Modifier.padding(4.dp))
-                }
+        // Name with diet leaf on top, ingredients below (wrapping as needed). The separate badge row made
+        // every card row ~50dp taller on the 8.7" tablet. Selection shows as border and fill, like the chips.
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Shrinks instead of wrapping or "…": at three columns "Eigenkreation" used to break mid-word.
+                val nameStyle = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize * 1.15f)
+                BasicText(
+                    name,
+                    style = nameStyle.copy(color = colors.onSurface),
+                    maxLines = 1,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = nameStyle.fontSize),
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                diet.icon?.let { Icon(it, diet.label, Modifier.size(16.dp), tint = colors.onTertiaryContainer) }
             }
+            Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
         }
     }
 }
