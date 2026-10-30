@@ -192,9 +192,9 @@ fun OrderScreen(
             }
         }
 
-        // Dock: the order as the ticket that's about to print, pinned to the bottom. Page switch and
-        // settings float top-right (MainActivity) and stay out of here.
-        BonDock(
+        // Dock: order summary + slide-to-order peel, pinned to the bottom. Page switch and settings
+        // float top-right (MainActivity) and stay out of here.
+        PeelDock(
             DockOrder(customer, pizzaName, sauceName, toppingNames, diet, menu.dietCulprits(current), menu.dough),
             number = nextNumber,
             onSubmit = {
