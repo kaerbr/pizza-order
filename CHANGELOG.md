@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/kaerbr/[secure]/compare/v1.0.2...v1.1.0) (2026-10-30)
+
+
+### Features
+
+* Teig-Zähler zeigt übrige Pizzen und sperrt Bestellungen bei 0 ([2678766](https://github.com/kaerbr/[secure]/commit/2678766ca6e147f4f4c179060739ed95fe4d118c)), closes [#1](https://github.com/kaerbr/[secure]/issues/1)
+
 ## [1.0.2](https://github.com/kaerbr/[secure]/compare/v1.0.1...v1.0.2) (2026-10-27)
 
 
