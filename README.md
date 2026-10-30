@@ -110,6 +110,8 @@ Voraussetzung ist [Android Studio](https://developer.android.com/studio). Projek
 
 Vor jedem Debug-Build laufen die Unit-Tests (`./gradlew testDebugUnitTest`), damit ein ungültiges Standard-Menü nicht erst beim App-Start auffällt.
 
+**Flüssig oder nicht?** Debug-Builds laufen spürbar ruckeliger als die Release-APK, weil sie nicht optimiert werden. Um die Geschwindigkeit zu beurteilen, `./gradlew assemblePreview` bauen: optimiert wie das Release, aber mit dem Debug-Schlüssel signiert und als eigene App „Pizza Order (Preview)“ installierbar. Bei Pull Requests legt CI diese APK neben die Debug-APK.
+
 **Standard-Menü anpassen:** Das Menü, mit dem die App ausgeliefert wird, steht in [`MenuConfig.kt`](app/src/main/java/io/github/kaerbr/pizzaorder/MenuConfig.kt) (`MenuConfig.Standard`). Dort ist auch für jede Zutat hinterlegt, ob sie vegan oder vegetarisch ist.
 
 Die Begriffe, die im Projekt verwendet werden, erklärt das [Glossar](GLOSSARY.md).

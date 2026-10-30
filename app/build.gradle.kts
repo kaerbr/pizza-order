@@ -42,13 +42,24 @@ android {
         debug {
             applicationIdSuffix = ".debug"
         }
+        // R8 compiles Compose into much faster code: without it scrolling and animations stutter on
+        // slower tablets. Debug builds stay unoptimized and are no measure of how smooth the app runs.
         release {
             if (keystoreFile != null) signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        // Release build (R8) signed with the debug key, as a PR test APK: shows how smooth the real app
+        // runs, which the debug APK can't. Own app id, next to both the release and the debug app.
+        create("preview") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".preview"
+            matchingFallbacks += "release"
         }
     }
     compileOptions {

@@ -1,0 +1,4 @@
+<resources>
+    <!-- Tells the optimized PR test build apart from the release and debug apps on the home screen. -->
+    <string name="app_name">Pizza Order (Preview)</string>
+</resources>
