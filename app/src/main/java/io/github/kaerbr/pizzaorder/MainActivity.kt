@@ -12,12 +12,20 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LocalPizza
 import androidx.compose.material.icons.outlined.AdminPanelSettings
@@ -44,7 +53,6 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -59,7 +67,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,6 +79,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.edit
 import androidx.core.view.WindowCompat
@@ -87,6 +96,7 @@ import io.github.kaerbr.pizzaorder.ui.PatternLock
 import io.github.kaerbr.pizzaorder.ui.SettingsScreen
 import io.github.kaerbr.pizzaorder.ui.theme.Palette
 import io.github.kaerbr.pizzaorder.ui.theme.PizzaTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -213,8 +223,8 @@ private fun MainScaffold(
     val pendingCount = state.orders.count { !it.isDone() }
 
     // No app bars at all: on the 8.7" tablet every dp goes to the order form. Page switch and settings
-    // float top-right instead, above the content, which both pages push down to make room.
-    // Outside the pager so they stay put while the pages slide.
+    // hide behind a small round button top-right, above the content, which both pages push down to
+    // make room. Outside the pager so it stays put while the pages slide.
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.background,
@@ -237,50 +247,97 @@ private fun MainScaffold(
                     )
                 }
             }
+            QuickMenu(
+                currentPage = pagerState.currentPage,
+                pendingCount = pendingCount,
+                onSelectPage = { page -> scope.launch { pagerState.animateScrollToPage(page) } },
+                onOpenAppearance = onOpenAppearance,
+                onOpenSettings = onOpenSettings,
+            )
+        }
+    }
+}
+
+private val pageIcons = listOf(Icons.Default.LocalPizza, Icons.AutoMirrored.Filled.ReceiptLong)
+
+/**
+ * FAB-menu look, but top-right and opening downwards (Material's FloatingActionButtonMenu only opens
+ * upwards, which would put it next to the order button). Collapsed it's a small neutral button with the
+ * current page's icon and the pending count; any choice, a tap elsewhere or a few idle seconds close it.
+ */
+@Composable
+private fun BoxScope.QuickMenu(
+    currentPage: Int,
+    pendingCount: Int,
+    onSelectPage: (Int) -> Unit,
+    onOpenAppearance: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(open) { if (open) { delay(6_000); open = false } }
+    val colors = MaterialTheme.colorScheme
+
+    // Tap anywhere else closes the menu; it swallows that tap so nothing behind gets hit by accident.
+    if (open) Box(Modifier.matchParentSize().clickable(interactionSource = null, indication = null) { open = false })
+
+    Column(
+        Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp),
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // Badge outside the Surface: the circle clips its content and would cut it off.
+        BadgedBox(badge = { if (!open && pendingCount > 0) Badge { Text("$pendingCount") } }) {
             Surface(
+                onClick = { open = !open },
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                shadowElevation = 4.dp,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp),
+                color = if (open) colors.primaryContainer else colors.surface,
+                contentColor = if (open) colors.primary else colors.onSurfaceVariant,
+                border = BorderStroke(1.dp, colors.outline),
+                shadowElevation = 2.dp,
+                modifier = Modifier.size(40.dp),
             ) {
-                Row(Modifier.padding(start = 3.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    PageSwitch(pagerState.currentPage, pendingCount) { page -> scope.launch { pagerState.animateScrollToPage(page) } }
-                    VerticalDivider(Modifier.height(24.dp).padding(start = 3.dp))
-                    IconButton(onClick = onOpenAppearance) {
-                        Icon(Icons.Outlined.LightMode, contentDescription = "Aussehen")
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Outlined.AdminPanelSettings, contentDescription = "Admin")
+                Box(contentAlignment = Alignment.Center) {
+                    Crossfade(open, label = "quickMenu") { isOpen ->
+                        if (isOpen) Icon(Icons.Default.Close, contentDescription = "Menü schließen", Modifier.size(20.dp))
+                        else Icon(pageIcons[currentPage], contentDescription = "Menü", Modifier.size(20.dp))
                     }
                 }
+            }
+        }
+        AnimatedVisibility(
+            open,
+            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
+        ) {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Bestellen", "Bestellungen ($pendingCount)").forEachIndexed { page, label ->
+                    QuickMenuItem(pageIcons[page], label, selected = currentPage == page) { open = false; onSelectPage(page) }
+                }
+                QuickMenuItem(Icons.Outlined.LightMode, "Aussehen") { open = false; onOpenAppearance() }
+                QuickMenuItem(Icons.Outlined.AdminPanelSettings, "Admin-Panel") { open = false; onOpenSettings() }
             }
         }
     }
 }
 
-/** Two-segment switch between the order form and the order list; the list shows its pending count as a badge. */
 @Composable
-private fun PageSwitch(current: Int, pendingCount: Int, onSelect: (Int) -> Unit) {
+private fun QuickMenuItem(icon: ImageVector, label: String, selected: Boolean = false, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    Row(Modifier.padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        listOf(
-            Icons.Default.LocalPizza to "Bestellen",
-            Icons.AutoMirrored.Filled.ReceiptLong to "Bestellungen ($pendingCount)",
-        ).forEachIndexed { page, (icon, label) ->
-            val selected = current == page
-            Surface(
-                onClick = { onSelect(page) },
-                shape = CircleShape,
-                color = if (selected) colors.primaryContainer else Color.Transparent,
-                contentColor = if (selected) colors.primary else colors.onSurfaceVariant,
-            ) {
-                Box(Modifier.size(width = 44.dp, height = 36.dp), contentAlignment = Alignment.Center) {
-                    BadgedBox(badge = { if (page == 1 && pendingCount > 0) Badge { Text("$pendingCount") } }) {
-                        Icon(icon, contentDescription = label)
-                    }
-                }
-            }
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (selected) colors.primaryContainer else colors.surface,
+        contentColor = if (selected) colors.primary else colors.onSurface,
+        border = BorderStroke(1.dp, if (selected) colors.primary else colors.outline),
+        shadowElevation = 3.dp,
+    ) {
+        Row(
+            Modifier.height(44.dp).padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(icon, null, Modifier.size(20.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
         }
     }
 }
