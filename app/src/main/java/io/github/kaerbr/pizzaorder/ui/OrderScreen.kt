@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -28,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
@@ -39,12 +41,12 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.outlined.Eco
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -59,10 +61,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -81,7 +85,11 @@ private const val NOTE_MAX = 160
 // heading row is exactly as tall as the button so both centre on one line.
 internal val FormTop = 25.dp
 internal val FormSidePadding = 20.dp
-internal val QuickMenuSize = 40.dp
+
+// Two control sizes for the whole screen: inputs and the main action at 48dp, choices and navigation at 40dp.
+internal val ControlHeight = 48.dp
+internal val ChipHeight = 40.dp
+internal val QuickMenuSize = ChipHeight
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -126,15 +134,12 @@ fun OrderScreen(
             // Spacing tuned so the whole form fits one portrait screen of the 8.7" party tablet (~600×1000dp).
             Column(Modifier.widthIn(max = 920.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Section("01", "Dein Name", headerHeight = QuickMenuSize) {
-                    OutlinedTextField(
+                    CompactTextField(
                         value = customer,
                         onValueChange = { customer = it },
-                        placeholder = { Text("z.B. Anna") },
+                        placeholder = "z.B. Anna",
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                        textStyle = MaterialTheme.typography.titleLarge,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = fieldColors(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -182,14 +187,12 @@ fun OrderScreen(
                 Section("05", "Notiz für die Küche", trailing = {
                     Text("${note.length} / $NOTE_MAX", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }) {
-                    OutlinedTextField(
+                    CompactTextField(
                         value = note,
                         onValueChange = { note = it.take(NOTE_MAX) },
-                        placeholder = { Text("z.B. extra knusprig, ohne Oregano…") },
+                        placeholder = "z.B. extra knusprig, ohne Oregano…",
                         maxLines = 3,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = fieldColors(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -267,7 +270,7 @@ fun OrderScreen(
                         disabledContainerColor = Color.Transparent, disabledContentColor = contentColor,
                     ),
                     modifier = Modifier
-                        .heightIn(min = 48.dp).widthIn(min = 260.dp)
+                        .heightIn(min = ControlHeight).widthIn(min = 260.dp)
                         .clip(shape)
                         .background(MaterialTheme.colorScheme.surface)
                         .drawBehind { drawRect(fill.copy(alpha = fillAlpha), size = size.copy(width = size.width * progress)) },
@@ -347,6 +350,59 @@ private fun fieldColors() = OutlinedTextFieldDefaults.colors(
     errorContainerColor = MaterialTheme.colorScheme.surface,
 )
 
+/**
+ * Material's outlined field at [ControlHeight]: OutlinedTextField forces a 56dp minimum and 16dp inner
+ * padding, which made the inputs look oversized next to the 48dp order button and 40dp chips.
+ * Same look and focus colours, built from its own decoration box with 12dp vertical padding.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CompactTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    keyboardOptions: KeyboardOptions,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = false,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val colors = fieldColors()
+    val shape = RoundedCornerShape(14.dp)
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.heightIn(min = ControlHeight),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        keyboardOptions = keyboardOptions,
+        singleLine = singleLine,
+        maxLines = maxLines,
+        interactionSource = interactionSource,
+    ) { innerTextField ->
+        OutlinedTextFieldDefaults.DecorationBox(
+            value = value,
+            innerTextField = innerTextField,
+            enabled = true,
+            singleLine = singleLine,
+            visualTransformation = VisualTransformation.None,
+            interactionSource = interactionSource,
+            placeholder = { Text(placeholder) },
+            colors = colors,
+            contentPadding = OutlinedTextFieldDefaults.contentPadding(top = 12.dp, bottom = 12.dp),
+            container = {
+                OutlinedTextFieldDefaults.Container(
+                    enabled = true,
+                    isError = false,
+                    interactionSource = interactionSource,
+                    colors = colors,
+                    shape = shape,
+                )
+            },
+        )
+    }
+}
+
 @Composable
 private fun Section(
     step: String,
@@ -410,6 +466,6 @@ private fun Pill(label: String, selected: Boolean, icon: ImageVector? = null, di
             borderColor = MaterialTheme.colorScheme.outline,
             selectedBorderColor = MaterialTheme.colorScheme.primary,
         ),
-        modifier = Modifier.heightIn(min = 40.dp),
+        modifier = Modifier.heightIn(min = ChipHeight),
     )
 }
