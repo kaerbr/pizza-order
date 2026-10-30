@@ -68,7 +68,8 @@ fun OrdersListScreen(
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
             Modifier.widthIn(max = 920.dp),
-            contentPadding = PaddingValues(horizontal = 32.dp, vertical = 32.dp),
+            // Extra top room: the floating page switch (MainActivity) sits over the top-right corner.
+            contentPadding = PaddingValues(start = 32.dp, end = 32.dp, top = 64.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (orders.isEmpty()) item { EmptyState() }

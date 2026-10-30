@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,9 +39,10 @@ import androidx.compose.material.icons.filled.LocalPizza
 import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +59,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,13 +72,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.edit
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -198,7 +197,6 @@ fun App(vm: AppViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainScaffold(
     state: AppState,
@@ -214,76 +212,75 @@ private fun MainScaffold(
     // queue. Done orders are still in the list but already handled.
     val pendingCount = state.orders.count { !it.isDone() }
 
-    // No top bar: on the 8.7" tablet every dp goes to the order form. Tabs, appearance and
-    // admin share one slim bottom bar instead of a TopAppBar plus an 80dp NavigationBar.
+    // No app bars at all: on the 8.7" tablet every dp goes to the order form. Page switch and settings
+    // float top-right instead, above the content, which both pages push down to make room.
+    // Outside the pager so they stay put while the pages slide.
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
-        bottomBar = {
-            Surface(color = MaterialTheme.colorScheme.surface) {
-                Column(Modifier.navigationBarsPadding()) {
-                    HorizontalDivider()
-                    Row(
-                        Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        listOf(
-                            Icons.Default.LocalPizza to "Bestellen",
-                            Icons.AutoMirrored.Filled.ReceiptLong to "Bestellungen ($pendingCount)",
-                        ).forEachIndexed { page, (icon, label) ->
-                            TabItem(icon, label, selected = pagerState.currentPage == page) {
-                                scope.launch { pagerState.animateScrollToPage(page) }
-                            }
-                        }
-                        Spacer(Modifier.weight(1f))
-                        IconButton(onClick = onOpenAppearance) {
-                            Icon(Icons.Outlined.LightMode, contentDescription = "Aussehen")
-                        }
-                        IconButton(onClick = onOpenSettings) {
-                            Icon(Icons.Outlined.AdminPanelSettings, contentDescription = "Admin")
-                        }
-                    }
-                }
-            }
-        },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        HorizontalPager(
-            state = pagerState,
-            beyondViewportPageCount = 1,
-            modifier = Modifier.padding(padding).fillMaxSize(),
-        ) { page ->
-            when (page) {
-                0 -> OrderScreen(
-                    menu = state.menu,
-                    onSubmit = vm::submitOrder,
-                )
-                else -> OrdersListScreen(
-                    orders = state.orders,
-                    onToggleDone = vm::toggleDone,
-                    onReprint = vm::reprint,
-                )
+        Box(Modifier.padding(padding).fillMaxSize()) {
+            HorizontalPager(
+                state = pagerState,
+                beyondViewportPageCount = 1,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                when (page) {
+                    0 -> OrderScreen(
+                        menu = state.menu,
+                        onSubmit = vm::submitOrder,
+                    )
+                    else -> OrdersListScreen(
+                        orders = state.orders,
+                        onToggleDone = vm::toggleDone,
+                        onReprint = vm::reprint,
+                    )
+                }
+            }
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                shadowElevation = 4.dp,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp),
+            ) {
+                Row(Modifier.padding(start = 3.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PageSwitch(pagerState.currentPage, pendingCount) { page -> scope.launch { pagerState.animateScrollToPage(page) } }
+                    VerticalDivider(Modifier.height(24.dp).padding(start = 3.dp))
+                    IconButton(onClick = onOpenAppearance) {
+                        Icon(Icons.Outlined.LightMode, contentDescription = "Aussehen")
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Outlined.AdminPanelSettings, contentDescription = "Admin")
+                    }
+                }
             }
         }
     }
 }
 
+/** Two-segment switch between the order form and the order list; the list shows its pending count as a badge. */
 @Composable
-private fun TabItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
+private fun PageSwitch(current: Int, pendingCount: Int, onSelect: (Int) -> Unit) {
     val colors = MaterialTheme.colorScheme
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = if (selected) colors.primaryContainer else Color.Transparent,
-        contentColor = if (selected) colors.primary else colors.onSurfaceVariant,
-    ) {
-        Row(
-            Modifier.height(40.dp).padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(icon, null, Modifier.size(20.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+    Row(Modifier.padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        listOf(
+            Icons.Default.LocalPizza to "Bestellen",
+            Icons.AutoMirrored.Filled.ReceiptLong to "Bestellungen ($pendingCount)",
+        ).forEachIndexed { page, (icon, label) ->
+            val selected = current == page
+            Surface(
+                onClick = { onSelect(page) },
+                shape = CircleShape,
+                color = if (selected) colors.primaryContainer else Color.Transparent,
+                contentColor = if (selected) colors.primary else colors.onSurfaceVariant,
+            ) {
+                Box(Modifier.size(width = 44.dp, height = 36.dp), contentAlignment = Alignment.Center) {
+                    BadgedBox(badge = { if (page == 1 && pendingCount > 0) Badge { Text("$pendingCount") } }) {
+                        Icon(icon, contentDescription = label)
+                    }
+                }
+            }
         }
     }
 }

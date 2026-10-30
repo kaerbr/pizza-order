@@ -113,7 +113,8 @@ fun OrderScreen(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                // Top room for the floating page switch (MainActivity), which must not reach into the name field.
+                .padding(start = 20.dp, end = 20.dp, top = 44.dp, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Spacing tuned so the whole form fits one portrait screen of the 8.7" party tablet (~600×1000dp).
@@ -189,9 +190,10 @@ fun OrderScreen(
             }
         }
 
-        // Dock: order summary + submit, pinned above the tab bar.
-        HorizontalDivider()
-        Surface(color = MaterialTheme.colorScheme.surface) {
+        // Dock: order summary + submit, pinned to the bottom. Tinted so "your order" stands apart from
+        // the form; page switch and settings float top-right (MainActivity) and stay out of here.
+        HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+        Surface(color = MaterialTheme.colorScheme.primaryContainer) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -261,7 +263,7 @@ fun OrderScreen(
                     modifier = Modifier
                         .heightIn(min = 48.dp).widthIn(min = 260.dp)
                         .clip(shape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(MaterialTheme.colorScheme.surface)
                         .drawBehind { drawRect(fill.copy(alpha = fillAlpha), size = size.copy(width = size.width * progress)) },
                 ) {
                     Icon(Icons.Default.Print, null)
