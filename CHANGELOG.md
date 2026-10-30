@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/kaerbr/[secure]/compare/v1.4.0...v1.4.1) (2026-10-30)
+
+
+### Performance Improvements
+
+* Release-Build mit R8 optimieren ([ca60af5](https://github.com/kaerbr/[secure]/commit/ca60af5fc7ff72fe1625174b717b4f92a6f1710d))
+
 # [1.4.0](https://github.com/kaerbr/[secure]/compare/v1.3.0...v1.4.0) (2026-10-30)
 
 
