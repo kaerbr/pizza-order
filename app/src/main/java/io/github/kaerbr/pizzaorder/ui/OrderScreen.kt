@@ -64,6 +64,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -75,6 +76,12 @@ import io.github.kaerbr.pizzaorder.Topping
 
 private const val CUSTOM_NAME = "Eigenkreation"
 private const val NOTE_MAX = 160
+
+// The floating quick menu (MainActivity) sits in the "01 Dein Name" row: same top edge, and that
+// heading row is exactly as tall as the button so both centre on one line.
+internal val FormTop = 44.dp
+internal val FormSidePadding = 20.dp
+internal val QuickMenuSize = 40.dp
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -113,13 +120,12 @@ fun OrderScreen(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                // Top room for the floating page switch (MainActivity), which must not reach into the name field.
-                .padding(start = 20.dp, end = 20.dp, top = 44.dp, bottom = 16.dp),
+                .padding(start = FormSidePadding, end = FormSidePadding, top = FormTop, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Spacing tuned so the whole form fits one portrait screen of the 8.7" party tablet (~600×1000dp).
             Column(Modifier.widthIn(max = 920.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Section("01", "Dein Name") {
+                Section("01", "Dein Name", headerHeight = QuickMenuSize) {
                     OutlinedTextField(
                         value = customer,
                         onValueChange = { customer = it },
@@ -342,9 +348,15 @@ private fun fieldColors() = OutlinedTextFieldDefaults.colors(
 )
 
 @Composable
-private fun Section(step: String, title: String, trailing: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
+private fun Section(
+    step: String,
+    title: String,
+    trailing: @Composable () -> Unit = {},
+    headerHeight: Dp = Dp.Unspecified,
+    content: @Composable () -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.heightIn(min = headerHeight), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(step, style = MaterialTheme.typography.labelMedium, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
             Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize), modifier = Modifier.weight(1f))
             trailing()

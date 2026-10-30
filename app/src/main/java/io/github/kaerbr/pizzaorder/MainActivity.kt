@@ -90,7 +90,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.kaerbr.pizzaorder.ui.FormSidePadding
+import io.github.kaerbr.pizzaorder.ui.FormTop
 import io.github.kaerbr.pizzaorder.ui.OrderScreen
+import io.github.kaerbr.pizzaorder.ui.QuickMenuSize
 import io.github.kaerbr.pizzaorder.ui.OrdersListScreen
 import io.github.kaerbr.pizzaorder.ui.PatternLock
 import io.github.kaerbr.pizzaorder.ui.SettingsScreen
@@ -281,7 +284,7 @@ private fun BoxScope.QuickMenu(
     if (open) Box(Modifier.matchParentSize().clickable(interactionSource = null, indication = null) { open = false })
 
     Column(
-        Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp),
+        Modifier.align(Alignment.TopEnd).padding(top = FormTop, end = FormSidePadding),
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -294,7 +297,7 @@ private fun BoxScope.QuickMenu(
                 contentColor = if (open) colors.primary else colors.onSurfaceVariant,
                 border = BorderStroke(1.dp, colors.outline),
                 shadowElevation = 2.dp,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(QuickMenuSize),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Crossfade(open, label = "quickMenu") { isOpen ->

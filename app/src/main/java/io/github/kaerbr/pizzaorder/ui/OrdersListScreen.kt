@@ -68,8 +68,8 @@ fun OrdersListScreen(
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
             Modifier.widthIn(max = 920.dp),
-            // Extra top room: the floating page switch (MainActivity) sits over the top-right corner.
-            contentPadding = PaddingValues(start = 32.dp, end = 32.dp, top = 64.dp, bottom = 32.dp),
+            // List starts below the floating quick menu (MainActivity), which has no heading row to sit in here.
+            contentPadding = PaddingValues(start = 32.dp, end = 32.dp, top = FormTop + QuickMenuSize + 12.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (orders.isEmpty()) item { EmptyState() }
