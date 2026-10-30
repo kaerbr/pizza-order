@@ -1,3 +1,17 @@
+# [1.3.0](https://github.com/kaerbr/[secure]/compare/v1.2.0...v1.3.0) (2026-10-30)
+
+
+### Bug Fixes
+
+* maxWidth vor dem Column-Scope auslesen ([a0af50f](https://github.com/kaerbr/[secure]/commit/a0af50f60263ae3f231452e750ec2eca5cf05c59))
+* volle 32-Zeichen-Zeilen auf dem Bestätigungs-Bon brechen nicht mehr um ([819c40b](https://github.com/kaerbr/[secure]/commit/819c40bd65f0ae6356a5381f5a6527d2c3ab8fd0))
+
+
+### Features
+
+* Bestätigungs-Bon zeigt genau den gedruckten Ausdruck ([5b65459](https://github.com/kaerbr/[secure]/commit/5b65459a261f3903939ceeac6493134a4ceb1f4b))
+* Bestell-Bestätigung als Bon statt Toasts ([44b095a](https://github.com/kaerbr/[secure]/commit/44b095a4542b4d2299c281ecee7dc54bb09f3c79))
+
 # [1.2.0](https://github.com/kaerbr/[secure]/compare/v1.1.0...v1.2.0) (2026-10-30)
 
 
