@@ -24,6 +24,7 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 ## ✨ Features
 
 - 🍕 **Vordefinierte Pizzen oder Eigenkreation**: Sauce und Beläge frei wählen
+- 🥖 **Teig-Zähler**: zeigt, wie viele Pizzen noch gehen, und nimmt bei 0 keine Bestellung mehr an
 - 🌱 **Vegan / Vegetarisch** wird aus den Zutaten erkannt und auf dem Ausdruck hervorgehoben
 - 🖨️ **Ausdruck per Bluetooth** auf günstigen 58-mm-Thermodruckern, mit Bestellnummer, Name und Notiz für die Küche
 - 📋 **Bestellliste** mit „Offen“ und „Fertig“, Wartezeit und Nachdrucken
@@ -78,6 +79,7 @@ Die meisten günstigen Bluetooth-Bondrucker sprechen ESC/POS und sollten funktio
 Im Admin-Panel kannst du:
 
 - das **Menü** bearbeiten (Saucen, Beläge, vordefinierte Pizzen) oder auf das Standard-Menü zurücksetzen
+- eintragen, wie viele **Teiglinge** es heute gibt (ohne Eintrag wird nicht gezählt)
 - das **Ausdruck-Design** wählen und einen **Testdruck** auslösen
 - **QR-Links** für den Ausdruck pflegen
 - **alle Bestellungen löschen**, z. B. vor dem nächsten Abend

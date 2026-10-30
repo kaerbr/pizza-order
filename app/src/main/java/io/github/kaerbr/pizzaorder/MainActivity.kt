@@ -395,6 +395,7 @@ private fun SettingsScaffold(
             onAddPreset      = vm::addPreset,
             onRemovePreset   = vm::removePreset,
             onResetMenu      = vm::resetMenu,
+            onSetDoughToday  = vm::setDoughToday,
             printStyle      = state.printStyle,
             onPrintStyle    = vm::setPrintStyle,
             onTestPrint      = { vm.testPrint() },

@@ -210,11 +210,22 @@ fun OrderScreen(
                         },
                         style = MaterialTheme.typography.headlineSmall,
                     )
+                    // Under the summary, not its own Row child: next to the 280dp button it squeezed the summary
+                    // to zero width on phones, and the wrapped text pushed the whole form off screen.
+                    menu.dough?.let { d ->
+                        Text(
+                            if (d.isSoldOut) "Ausverkauft" else "Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (d.isSoldOut || d.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 // Required steps: name and sauce (no toppings is fine, Marinara-style).
                 // The button fills from the left as they get done and only enables when all are.
                 val steps = listOf(customer.isNotBlank(), sauceName.isNotBlank())
-                val complete = steps.all { it }
+                val soldOut = menu.dough?.isSoldOut == true
+                val complete = steps.all { it } && !soldOut
                 // One slow ease for fill, colour and text so enabling doesn't snap: the button is always
                 // transparent and everything visible is this animated fill.
                 val ease = tween<Float>(durationMillis = 700, easing = FastOutSlowInEasing)
@@ -248,6 +259,7 @@ fun OrderScreen(
                     Spacer(Modifier.width(10.dp))
                     Text(
                         when {
+                            soldOut -> "Kein Teig mehr"
                             customer.isBlank() -> "Erst Namen eingeben"
                             sauceName.isBlank() -> "Erst Sauce wählen"
                             else -> "Bestellen & drucken"

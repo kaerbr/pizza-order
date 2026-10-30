@@ -1,0 +1,4 @@
+<resources>
+    <!-- Tells the PR test build apart from the release app on the home screen. -->
+    <string name="app_name">Pizza Order (Test)</string>
+</resources>

@@ -1,6 +1,9 @@
 package io.github.kaerbr.pizzaorder
 
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -36,5 +39,39 @@ class MenuConfigTest {
                 "Pizza \"error\": Belag \"nicht vorhanden\" fehlt in toppings",
             e.message,
         )
+    }
+
+    private val menu = MenuConfig.Standard.menu
+
+    @Test
+    fun takeDoughCountsDownToSoldOut() {
+        val oneLeft = menu.withDoughToday(2).takeDough()!!
+        assertEquals(DoughStock(available = 1, today = 2), oneLeft.dough)
+        assertNull(oneLeft.takeDough()!!.takeDough())
+    }
+
+    @Test
+    fun noLimitNeverBlocks() {
+        assertSame(menu, menu.takeDough())
+    }
+
+    @Test
+    fun settingTodaysCountRefillsAndCanBeLifted() {
+        val soldOut = menu.withDoughToday(1).takeDough()!!
+        assertEquals(DoughStock(5), soldOut.withDoughToday(5).dough)
+        assertEquals(DoughStock(0), menu.withDoughToday(-3).dough)
+        assertNull(soldOut.withDoughToday(null).dough)
+    }
+
+    @Test
+    fun lowAndSoldOutFlags() {
+        assertEquals(listOf(false, true, true, false), listOf(4, 3, 1, 0).map { DoughStock(it).isLow })
+        assertEquals(true, DoughStock(0).isSoldOut)
+    }
+
+    // menu.json from before the dough count existed must still load (JsonStore would otherwise fall back to the default menu).
+    @Test
+    fun oldMenuWithoutDoughHasNoLimit() {
+        assertNull(Json { ignoreUnknownKeys = true }.decodeFromString(MenuConfig.serializer(), "{}").dough)
     }
 }
