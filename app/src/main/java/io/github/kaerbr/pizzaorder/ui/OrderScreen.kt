@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -27,7 +28,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -37,12 +41,12 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.outlined.Eco
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,13 +61,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.MenuConfig
 import io.github.kaerbr.pizzaorder.Pizza
@@ -72,6 +80,16 @@ import io.github.kaerbr.pizzaorder.Topping
 
 private const val CUSTOM_NAME = "Eigenkreation"
 private const val NOTE_MAX = 160
+
+// The floating quick menu (MainActivity) sits in the "01 Dein Name" row: same top edge, and that
+// heading row is exactly as tall as the button so both centre on one line.
+internal val FormTop = 25.dp
+internal val FormSidePadding = 20.dp
+
+// Two control sizes for the whole screen: inputs and the main action at 48dp, choices and navigation at 40dp.
+internal val ControlHeight = 48.dp
+internal val ChipHeight = 40.dp
+internal val QuickMenuSize = ChipHeight
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -110,20 +128,18 @@ fun OrderScreen(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 32.dp, vertical = 32.dp),
+                .padding(start = FormSidePadding, end = FormSidePadding, top = FormTop, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(Modifier.widthIn(max = 920.dp), verticalArrangement = Arrangement.spacedBy(32.dp)) {
-                Section("01", "Dein Name") {
-                    OutlinedTextField(
+            // Spacing tuned so the whole form fits one portrait screen of the 8.7" party tablet (~600×1000dp).
+            Column(Modifier.widthIn(max = 920.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Section("01", "Dein Name", headerHeight = QuickMenuSize) {
+                    CompactTextField(
                         value = customer,
                         onValueChange = { customer = it },
-                        placeholder = { Text("z.B. Anna") },
+                        placeholder = "z.B. Anna",
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                        textStyle = MaterialTheme.typography.titleLarge,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = fieldColors(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -132,9 +148,9 @@ fun OrderScreen(
                     // Eigenkreation only shows a diet while it's the one being built.
                     val tiles = menu.presets.map { Triple(it.name, it.description, menu.dietOf(it)) } +
                         Triple(CUSTOM_NAME, "Sauce und Belag frei wählen", if (pizzaName == CUSTOM_NAME) diet else Diet.NONE)
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         tiles.chunked(3).forEach { row ->
-                            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 row.forEach { (name, desc, tileDiet) ->
                                     PizzaCard(name, desc, tileDiet, pizzaName == name, Modifier.weight(1f).fillMaxHeight()) {
                                         menu.presets.find { it.name == name }?.let { p ->
@@ -165,30 +181,34 @@ fun OrderScreen(
                             }
                         }
                     }
-                    DietLegend()
                 }
 
-                Section("05", "Notiz für die Küche") {
-                    OutlinedTextField(
+                // Counter sits in the header row: as supportingText it cost a line under the field.
+                Section("05", "Notiz für die Küche", trailing = {
+                    Text("${note.length} / $NOTE_MAX", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }) {
+                    CompactTextField(
                         value = note,
                         onValueChange = { note = it.take(NOTE_MAX) },
-                        placeholder = { Text("z.B. extra knusprig, ohne Oregano…") },
-                        minLines = 3,
-                        supportingText = { Text("${note.length} / $NOTE_MAX", Modifier.fillMaxWidth(), textAlign = TextAlign.End) },
+                        placeholder = "z.B. extra knusprig, ohne Oregano…",
+                        maxLines = 3,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = fieldColors(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+
+                // Menu-style footnote: the leaves mark pizzas, sauces and toppings alike, so the key
+                // closes the form instead of sitting in one section.
+                DietLegend(Modifier.align(Alignment.CenterHorizontally))
             }
         }
 
-        // Dock: order summary + submit, pinned above the tab bar.
-        HorizontalDivider()
-        Surface(color = MaterialTheme.colorScheme.surface) {
+        // Dock: order summary + submit, pinned to the bottom. Tinted so "your order" stands apart from
+        // the form; page switch and settings float top-right (MainActivity) and stay out of here.
+        HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+        Surface(color = MaterialTheme.colorScheme.primaryContainer) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 14.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
             ) {
@@ -199,8 +219,21 @@ fun OrderScreen(
                         Diet.VEGETARIAN -> " · ${diet.label} (${menu.dietCulprits(current).joinToString()})"
                         Diet.NONE -> ""
                     }
-                    Crossfade(dietSuffix, animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing), label = "diet") {
-                        Eyebrow("Deine Bestellung$it")
+                    // Dough stock rides in the eyebrow line instead of a third line under the summary.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Crossfade(
+                            dietSuffix, animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing), label = "diet",
+                            modifier = Modifier.weight(1f, fill = false),
+                        ) {
+                            Eyebrow("Deine Bestellung$it", maxLines = 1)
+                        }
+                        menu.dough?.let { d ->
+                            Eyebrow(
+                                if (d.isSoldOut) " · Ausverkauft" else " · Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
+                                maxLines = 1,
+                                color = if (d.isSoldOut || d.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     Text(
                         when {
@@ -208,18 +241,9 @@ fun OrderScreen(
                             customer.isBlank() -> pizzaName
                             else -> "$pizzaName für ${customer.trim()}"
                         },
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
-                    // Under the summary, not its own Row child: next to the 280dp button it squeezed the summary
-                    // to zero width on phones, and the wrapped text pushed the whole form off screen.
-                    menu.dough?.let { d ->
-                        Text(
-                            if (d.isSoldOut) "Ausverkauft" else "Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (d.isSoldOut || d.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
                 // Required steps: name and sauce (no toppings is fine, Marinara-style).
                 // The button fills from the left as they get done and only enables when all are.
@@ -250,9 +274,9 @@ fun OrderScreen(
                         disabledContainerColor = Color.Transparent, disabledContentColor = contentColor,
                     ),
                     modifier = Modifier
-                        .heightIn(min = 56.dp).widthIn(min = 280.dp)
+                        .heightIn(min = ControlHeight).widthIn(min = 260.dp)
                         .clip(shape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(MaterialTheme.colorScheme.surface)
                         .drawBehind { drawRect(fill.copy(alpha = fillAlpha), size = size.copy(width = size.width * progress)) },
                 ) {
                     Icon(Icons.Default.Print, null)
@@ -274,11 +298,18 @@ fun OrderScreen(
 }
 
 @Composable
-internal fun Eyebrow(text: String, modifier: Modifier = Modifier) = Text(
+internal fun Eyebrow(
+    text: String,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) = Text(
     text.uppercase(),
     style = MaterialTheme.typography.labelMedium,
-    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    color = color,
     fontWeight = FontWeight.SemiBold,
+    maxLines = maxLines,
+    overflow = TextOverflow.Ellipsis,
     modifier = modifier,
 )
 
@@ -305,8 +336,8 @@ internal fun DietBadge(diet: Diet, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun DietLegend() {
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+private fun DietLegend(modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         listOf(Diet.VEGAN, Diet.VEGETARIAN).forEach { d ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(d.icon!!, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
@@ -323,12 +354,72 @@ private fun fieldColors() = OutlinedTextFieldDefaults.colors(
     errorContainerColor = MaterialTheme.colorScheme.surface,
 )
 
+/**
+ * Material's outlined field at [ControlHeight]: OutlinedTextField forces a 56dp minimum and 16dp inner
+ * padding, which made the inputs look oversized next to the 48dp order button and 40dp chips.
+ * Same look and focus colours, built from its own decoration box with 12dp vertical padding.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Section(step: String, title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+private fun CompactTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    keyboardOptions: KeyboardOptions,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = false,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val colors = fieldColors()
+    val shape = RoundedCornerShape(14.dp)
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.heightIn(min = ControlHeight),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        keyboardOptions = keyboardOptions,
+        singleLine = singleLine,
+        maxLines = maxLines,
+        interactionSource = interactionSource,
+    ) { innerTextField ->
+        OutlinedTextFieldDefaults.DecorationBox(
+            value = value,
+            innerTextField = innerTextField,
+            enabled = true,
+            singleLine = singleLine,
+            visualTransformation = VisualTransformation.None,
+            interactionSource = interactionSource,
+            placeholder = { Text(placeholder) },
+            colors = colors,
+            contentPadding = OutlinedTextFieldDefaults.contentPadding(top = 12.dp, bottom = 12.dp),
+            container = {
+                OutlinedTextFieldDefaults.Container(
+                    enabled = true,
+                    isError = false,
+                    interactionSource = interactionSource,
+                    colors = colors,
+                    shape = shape,
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun Section(
+    step: String,
+    title: String,
+    trailing: @Composable () -> Unit = {},
+    headerHeight: Dp = Dp.Unspecified,
+    content: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.heightIn(min = headerHeight), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(step, style = MaterialTheme.typography.labelMedium, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
-            Text(title, style = MaterialTheme.typography.headlineSmall)
+            Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize), modifier = Modifier.weight(1f))
+            trailing()
         }
         content()
     }
@@ -344,21 +435,22 @@ private fun PizzaCard(name: String, description: String, diet: Diet, selected: B
         color = if (selected) colors.primaryContainer else colors.surface,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) colors.primary else colors.outline),
     ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(name, style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize))
-            Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                DietBadge(diet)
-                Spacer(Modifier.weight(1f))
-                Surface(
-                    shape = CircleShape,
-                    color = if (selected) colors.primary else colors.surface,
-                    border = if (selected) null else BorderStroke(1.5.dp, colors.outline),
-                    modifier = Modifier.size(22.dp),
-                ) {
-                    if (selected) Icon(Icons.Default.Check, null, tint = colors.onPrimary, modifier = Modifier.padding(4.dp))
-                }
+        // Name with diet leaf on top, ingredients below (wrapping as needed). The separate badge row made
+        // every card row ~50dp taller on the 8.7" tablet. Selection shows as border and fill, like the chips.
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Shrinks instead of wrapping or "…": at three columns "Eigenkreation" used to break mid-word.
+                val nameStyle = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize * 1.15f)
+                BasicText(
+                    name,
+                    style = nameStyle.copy(color = colors.onSurface),
+                    maxLines = 1,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = nameStyle.fontSize),
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                diet.icon?.let { Icon(it, diet.label, Modifier.size(16.dp), tint = colors.onTertiaryContainer) }
             }
+            Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -368,7 +460,7 @@ private fun Pill(label: String, selected: Boolean, icon: ImageVector? = null, di
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label, style = MaterialTheme.typography.bodyLarge) },
+        label = { Text(label, style = MaterialTheme.typography.bodyMedium) },
         leadingIcon = icon?.let { { Icon(it, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
         trailingIcon = diet.icon?.let { { Icon(it, diet.label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) } },
         shape = CircleShape,
@@ -378,6 +470,6 @@ private fun Pill(label: String, selected: Boolean, icon: ImageVector? = null, di
             borderColor = MaterialTheme.colorScheme.outline,
             selectedBorderColor = MaterialTheme.colorScheme.primary,
         ),
-        modifier = Modifier.heightIn(min = 44.dp),
+        modifier = Modifier.heightIn(min = ChipHeight),
     )
 }
