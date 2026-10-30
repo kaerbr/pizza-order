@@ -13,6 +13,8 @@ data class MenuConfig(
     // (OrderScreen) and compared by equality, a diet field would break every `in` check.
     // Unlisted = Diet.NONE, so nothing is ever labelled vegan by accident.
     val diets: Map<String, Diet> = Standard.diets,
+    // In menu.json, so every order's decrement is on disk right away. null = no limit (nothing counted or shown).
+    val dough: DoughStock? = null,
 ) {
     // Lists every problem at once, so one failure shows all typos. MenuConfigTest runs this on Standard.menu
     // before each debug build; a broken menu.json never gets here as a crash (JsonStore falls back to Standard.menu).
@@ -69,6 +71,16 @@ data class MenuConfig(
     fun withDiet(name: String, diet: Diet) = copy(diets = diets + (name to diet))
 
     fun dietOf(name: String) = diets[name] ?: Diet.NONE
+
+    /** Sets how many dough balls there are today and fills the stock to it; null lifts the limit. */
+    fun withDoughToday(count: Int?) = copy(dough = count?.let { DoughStock(it.coerceAtLeast(0)) })
+
+    /** One dough ball used up; null when sold out, so no order goes through without one. Unchanged without a limit. */
+    fun takeDough(): MenuConfig? = when {
+        dough == null -> this
+        dough.isSoldOut -> null
+        else -> copy(dough = dough.copy(available = dough.available - 1))
+    }
 
     /** As strict as its least strict ingredient; a bare crust counts as vegan. */
     fun dietOf(pizza: Pizza) = ingredients(pizza).maxOfOrNull { dietOf(it) } ?: Diet.VEGAN

@@ -16,6 +16,10 @@ _Avoid_: Auftrag, Order
 Eine Pizza, deren Sauce und Beläge der Gast selbst wählt, im Gegensatz zu einer vordefinierten Pizza aus dem Menü.
 _Avoid_: Custom-Pizza
 
+**Teig-Bestand**:
+Wie viele vorbereitete Teiglinge noch übrig sind; jede Bestellung verbraucht einen, bei 0 ist ausverkauft. Die Anzahl für heute wird im Admin-Panel eingetragen.
+_Avoid_: Lager, Stock
+
 **Menü**:
 Die Saucen, Beläge und vordefinierten Pizzen, aus denen Gäste wählen können.
 _Avoid_: Speisekarte, Konfiguration

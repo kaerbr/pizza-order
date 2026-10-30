@@ -64,6 +64,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.kaerbr.pizzaorder.Diet
+import io.github.kaerbr.pizzaorder.DoughStock
 import io.github.kaerbr.pizzaorder.FunLink
 import io.github.kaerbr.pizzaorder.MenuConfig
 import io.github.kaerbr.pizzaorder.Order
@@ -87,6 +88,7 @@ fun SettingsScreen(
     onAddPreset: (Pizza) -> Unit,
     onRemovePreset: (String) -> Unit,
     onResetMenu: () -> Unit,
+    onSetDoughToday: (Int?) -> Unit,
     onClearAllOrders: () -> Unit,
     printStyle: PrintStyle,
     onPrintStyle: (PrintStyle) -> Unit,
@@ -155,6 +157,9 @@ fun SettingsScreen(
                                 StatTile("Fertig", orders.size - open, Modifier.weight(1f))
                                 StatTile("QR-Links", menu.funLinks.size, Modifier.weight(1f))
                             }
+                        }
+                        Section(title = "Teig") {
+                            DoughSetting(menu.dough, onSetDoughToday)
                         }
                         Section(title = "Drucker") {
                             Text("Ausdruck-Design: ${printStyle.label}", style = MaterialTheme.typography.bodyLarge)
@@ -309,6 +314,43 @@ private fun DangerButton(text: String, icon: ImageVector, onClick: () -> Unit) {
         Icon(icon, null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text(text)
+    }
+}
+
+@Composable
+private fun DoughSetting(dough: DoughStock?, onSet: (Int?) -> Unit) {
+    // Re-keyed so the field shows the new count once it's set.
+    var count by remember(dough?.today) { mutableStateOf(dough?.today?.toString().orEmpty()) }
+    val quantity = count.toIntOrNull()
+    Text(
+        when {
+            dough == null -> "Kein Limit: Bestellungen werden nicht gezählt."
+            dough.isSoldOut -> "Ausverkauft (heute ${dough.today})"
+            else -> "Noch ${dough.available} von ${dough.today} Pizzen übrig"
+        },
+        style = MaterialTheme.typography.bodyLarge,
+        color = if (dough != null && (dough.isSoldOut || dough.isLow)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+    )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = count,
+            onValueChange = { new -> count = new.filter(Char::isDigit).take(4) },
+            label = { Text("Teiglinge heute") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.weight(1f),
+        )
+        // Same number again starts the count over, e.g. for the next party.
+        Button(
+            onClick = { onSet(quantity) },
+            enabled = quantity != null,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.height(56.dp),
+        ) { Text("Setzen") }
+        if (dough != null) {
+            TextButton(onClick = { onSet(null) }) { Text("Kein Limit") }
+        }
     }
 }
 

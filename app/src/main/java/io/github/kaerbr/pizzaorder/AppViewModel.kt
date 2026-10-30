@@ -85,6 +85,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun submitOrder(customer: String, pizza: Pizza, note: String) {
         val cleanCustomer = customer.trim()
         if (cleanCustomer.isEmpty()) return updateMessage("Bitte einen Namen eingeben.")
+        // Checked here too, not just by the disabled button: the last dough ball may be gone since the screen drew.
+        val menuAfter = _state.value.menu.takeDough() ?: return updateMessage("Leider kein Teig mehr übrig.")
+        updateMenu { menuAfter }
 
         // ponytail: restarts at #001 after "Alle löschen"; persist a counter if numbers must stay unique all night
         val number = (_state.value.orders.maxOfOrNull { it.number } ?: 0) + 1
@@ -161,8 +164,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun removeFunLink(link: FunLink) = updateMenu { it.withoutFunLink(link) }
 
+    fun setDoughToday(count: Int?) = updateMenu { it.withDoughToday(count) }
+
     fun resetMenu() {
-        val newMenu = MenuConfig.Standard.menu
+        // The dough count isn't part of the menu: keep it, mid-party it's still what's in the fridge.
+        val newMenu = MenuConfig.Standard.menu.copy(dough = _state.value.menu.dough)
         _state.update { it.copy(menu = newMenu, message = "Standardmenü wiederhergestellt.") }
         viewModelScope.launch { menuRepo.save(newMenu) }
     }

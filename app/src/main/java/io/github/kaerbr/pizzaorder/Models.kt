@@ -15,6 +15,18 @@ data class Topping(val name: String)
 @Serializable
 enum class Diet(val label: String) { VEGAN("Vegan"), VEGETARIAN("Vegetarisch"), NONE("Nichts davon") }
 
+/** Today's prepared dough balls, one per pizza; [today] is the count set in Admin, shown as "Noch X von Y". */
+@Serializable
+data class DoughStock(val available: Int, val today: Int = available) {
+    val isSoldOut get() = available <= 0
+    val isLow get() = available in 1..LOW
+
+    companion object {
+        /** At or below this many left, the count turns red. */
+        const val LOW = 3
+    }
+}
+
 /** QR code on the printout: [url] is what it opens; [teaser] is only a label in Settings, not printed. */
 @Serializable
 data class FunLink(val teaser: String, val url: String)
