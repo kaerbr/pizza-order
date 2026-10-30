@@ -37,6 +37,11 @@ android {
     }
 
     buildTypes {
+        // Own app id, so a test APK from a PR installs next to the release app instead of replacing it
+        // (different signing key) and keeps its own orders and menu.
+        debug {
+            applicationIdSuffix = ".debug"
+        }
         release {
             if (keystoreFile != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
