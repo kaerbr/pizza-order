@@ -79,7 +79,7 @@ private const val NOTE_MAX = 160
 
 // The floating quick menu (MainActivity) sits in the "01 Dein Name" row: same top edge, and that
 // heading row is exactly as tall as the button so both centre on one line.
-internal val FormTop = 44.dp
+internal val FormTop = 25.dp
 internal val FormSidePadding = 20.dp
 internal val QuickMenuSize = 40.dp
 
