@@ -220,7 +220,7 @@ header.top { display: flex; gap: 16px; align-items: flex-start; justify-content:
   --x: 0px;
   position: relative; height: 60px; border-radius: 30px;
   background: color-mix(in srgb, var(--ink) 5%, var(--surface));
-  border: 1.5px solid transparent; overflow: hidden; touch-action: none; user-select: none;
+  border: 1.5px solid transparent; touch-action: none; user-select: none;
   transition: background .6s;
 }
 .track.ready { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
@@ -243,14 +243,16 @@ header.top { display: flex; gap: 16px; align-items: flex-start; justify-content:
 /* Knob and oven: same size, each concentric with one round end of the track (padding box 57px high). */
 .oven {
   --glow: .3;
-  position: absolute; right: 4px; top: 4px; width: 49px; height: 49px; border-radius: 50%;
+  /* Bigger than the track: next to a pizza-sized oven the pizza looked like it couldn't fit in.
+     Concentric with the track's right end (centre 28.5px in), spilling into the card's padding. */
+  position: absolute; right: -6px; top: -6px; width: 69px; height: 69px; border-radius: 50%;
   background: radial-gradient(circle, #4a3328, #261a15 70%);
   /* Hairline so the dark oven still reads on the dark track in dark mode. */
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 80%, #fff 10%);
 }
 .oven::before, .oven::after {
-  content: ""; position: absolute; left: 50%; bottom: 12px; width: 29px; height: 23px;
-  margin-left: -14.5px; border-radius: 14.5px 14.5px 0 0;
+  content: ""; position: absolute; left: 50%; bottom: 17px; width: 45px; height: 35px;
+  margin-left: -22.5px; border-radius: 22.5px 22.5px 0 0;
 }
 .oven::before { background: #140c09; }
 .oven::after {
@@ -566,7 +568,7 @@ function renderB(d) {
   knob.innerHTML = pizzaSVG();
   knob.setAttribute('aria-label', d.complete ? 'Bestellen: Pizza in den Ofen schieben' : d.label);
 }
-function maxX() { return track.clientWidth - 4 * 3 - 49 * 2; }
+function maxX() { return track.clientWidth - 28.5 - 34.5 - 4 - 49; }
 function setX(x) {
   track.style.setProperty('--x', x + 'px');
   // Label gets out of the way, embers flare as the pizza nears the oven.
@@ -582,7 +584,7 @@ function nudgeMissing() {
   const el = $(miss); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
 }
 function finishB() {
-  track.classList.add('spring'); setX(maxX() + 53); track.classList.add('done');
+  track.classList.add('spring'); setX(track.clientWidth - 57); track.classList.add('done');
   submit('frameB', () => {});
   setTimeout(() => { track.classList.remove('done'); setX(0); setTimeout(() => track.classList.remove('spring'), 450); }, 700);
 }

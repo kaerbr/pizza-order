@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,7 +49,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -115,6 +115,9 @@ private fun <T> ease(): FiniteAnimationSpec<T> = tween(durationMillis = 700, eas
 private val TrackHeight = 56.dp
 private val KnobSize = 48.dp
 private val TrackInset = 4.dp
+// Bigger than the track on purpose: next to a pizza-sized oven the pizza looked like it couldn't fit in.
+// It stays concentric with the track's right end and spills into the card's padding, so nothing else grows.
+private val OvenSize = 68.dp
 
 /**
  * The dock as a pizza peel (design/dock.html, variant B): guests order by sliding their pizza into the
@@ -220,18 +223,16 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
     val flicker by fire.animateFloat(0.9f, 1.1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "flicker")
     val shimmer by fire.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "shimmer")
 
-    BoxWithConstraints(
-        Modifier
-            .fillMaxWidth()
-            .height(TrackHeight)
-            .clip(CircleShape)
-            .background(trackColor),
-    ) {
-        // Knob and oven are the same size, each concentric with one round end of the track.
+    // Not clipped: the oven reaches past the track. The track itself is the first child instead.
+    BoxWithConstraints(Modifier.fillMaxWidth().height(TrackHeight)) {
+        Box(Modifier.fillMaxSize().background(trackColor, CircleShape))
+
+        // Knob and oven are each concentric with one round end of the track.
         // Knob rests left; at maxX it touches the oven, and past 85% of that letting go orders.
-        // Knob position where it covers the oven exactly.
-        val ovenX = with(density) { (maxWidth - KnobSize - TrackInset * 2).toPx() }
-        val maxX = with(density) { (maxWidth - KnobSize * 2 - TrackInset * 3).toPx() }.coerceAtLeast(1f)
+        val ovenCentre = maxWidth - TrackHeight / 2
+        // Knob position where it covers the oven's centre.
+        val ovenX = with(density) { (ovenCentre - TrackInset - KnobSize / 2).toPx() }
+        val maxX = with(density) { (ovenCentre - OvenSize / 2 - TrackInset - KnobSize).toPx() }.coerceAtLeast(1f)
         val x = remember { Animatable(0f) }
         val knobScale = remember { Animatable(1f) }
         val knobAlpha = remember { Animatable(1f) }
@@ -287,7 +288,7 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(horizontal = KnobSize + TrackInset * 3)
+                .padding(start = KnobSize + TrackInset * 3, end = (TrackHeight + OvenSize) / 2 + TrackInset * 2)
                 // Gets out of the way while the pizza slides over it.
                 .graphicsLayer { alpha = 1f - (progress() * 1.6f).coerceAtMost(1f) },
         )
@@ -296,7 +297,12 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
             rim = colors.onSurface.copy(alpha = 0.15f),
             glow = { (glowBase + progress() * 0.3f).coerceAtMost(1f) },
             flicker = flicker,
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = TrackInset).size(KnobSize),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                // requiredSize lets it outgrow the track's height (centred on it); the offset re-centres it
+                // on the round end, since the width overflow would otherwise all go inwards.
+                .offset(x = (OvenSize - TrackHeight) / 2)
+                .requiredSize(OvenSize),
         )
 
         // The pizza on the peel.
@@ -353,8 +359,8 @@ private fun Oven(rim: Color, glow: () -> Float, flicker: Float, modifier: Modifi
         // Hairline rim: in dark mode the dark oven otherwise melts into the track.
         drawCircle(rim, r - 0.5.dp.toPx(), style = Stroke(1.dp.toPx()))
         // Arched mouth, sitting low like a real oven door: straight sides, round top.
-        val w = r * 1.2f
-        val h = r * 0.95f
+        val w = r * 1.3f
+        val h = r * 1.0f
         val left = center.x - w / 2
         val floor = center.y + r * 0.5f
         val mouth = Path().apply {
