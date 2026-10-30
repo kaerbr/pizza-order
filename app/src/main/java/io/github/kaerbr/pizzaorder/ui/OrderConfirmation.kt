@@ -157,10 +157,12 @@ private fun Slip(markup: String) {
         val measurer = rememberTextMeasurer()
         val density = LocalDensity.current
         // Pixels one monospace char takes per sp of font size (density and font scale included).
+        // getLineRight, not size.width: the latter rounds up to whole pixels.
         val pxPerSp = remember(measurer, density) {
-            measurer.measure("0".repeat(10), TextStyle(fontFamily = FontFamily.Monospace, fontSize = 100.sp)).size.width / 1000f
+            measurer.measure("0".repeat(10), TextStyle(fontFamily = FontFamily.Monospace, fontSize = 100.sp)).getLineRight(0) / 1000f
         }
-        val fontSize = (with(density) { paperWidth.toPx() } / Printout.LINE_CHARS / pxPerSp).sp
+        // 2 % slack: a full 32-char rule that fits to the pixel still wrapped its last "=" onto a new line.
+        val fontSize = (with(density) { paperWidth.toPx() } / Printout.LINE_CHARS / pxPerSp * 0.98f).sp
         val lines = remember(markup) { Printout.parse(markup) }
         Column {
             lines.forEach { PaperLine(it, fontSize, paperWidth) }
