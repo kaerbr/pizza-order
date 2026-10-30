@@ -58,10 +58,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -92,6 +88,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.kaerbr.pizzaorder.ui.FormSidePadding
 import io.github.kaerbr.pizzaorder.ui.FormTop
+import io.github.kaerbr.pizzaorder.ui.OrderConfirmation
 import io.github.kaerbr.pizzaorder.ui.OrderScreen
 import io.github.kaerbr.pizzaorder.ui.QuickMenuSize
 import io.github.kaerbr.pizzaorder.ui.OrdersListScreen
@@ -132,7 +129,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun App(vm: AppViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
 
     val systemDark = isSystemInDarkTheme()
     // Appearance survives restarts; until the user picks, brightness follows the system.
@@ -153,15 +149,6 @@ fun App(vm: AppViewModel) {
                     Manifest.permission.BLUETOOTH_SCAN,
                 ),
             )
-        }
-    }
-
-    LaunchedEffect(state.message) {
-        state.message?.let { msg ->
-            val undo = state.undoDone
-            val result = snackbar.showSnackbar(msg, actionLabel = undo?.let { "Rückgängig" }, duration = SnackbarDuration.Long)
-            if (result == SnackbarResult.ActionPerformed && undo != null) vm.toggleDone(undo)
-            vm.dismissMessage()
         }
     }
 
@@ -194,13 +181,11 @@ fun App(vm: AppViewModel) {
             SettingsScaffold(
                 vm = vm,
                 state = state,
-                snackbar = snackbar,
                 onClose = { showSettings = false },
             )
         } else {
             MainScaffold(
                 state = state,
-                snackbar = snackbar,
                 pagerState = pagerState,
                 onOpenSettings = { showLock = true },
                 onOpenAppearance = { showAppearance = true },
@@ -213,7 +198,6 @@ fun App(vm: AppViewModel) {
 @Composable
 private fun MainScaffold(
     state: AppState,
-    snackbar: SnackbarHostState,
     pagerState: PagerState,
     onOpenSettings: () -> Unit,
     onOpenAppearance: () -> Unit,
@@ -229,7 +213,6 @@ private fun MainScaffold(
     // hide behind a small round button top-right, above the content, which both pages push down to
     // make room. Outside the pager so it stays put while the pages slide.
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
@@ -247,6 +230,7 @@ private fun MainScaffold(
                         orders = state.orders,
                         onToggleDone = vm::toggleDone,
                         onReprint = vm::reprint,
+                        prints = state.prints,
                     )
                 }
             }
@@ -256,6 +240,12 @@ private fun MainScaffold(
                 onSelectPage = { page -> scope.launch { pagerState.animateScrollToPage(page) } },
                 onOpenAppearance = onOpenAppearance,
                 onOpenSettings = onOpenSettings,
+            )
+            // Last child, so the slip and its scrim cover the quick menu too.
+            OrderConfirmation(
+                order = state.confirmation,
+                printStatus = state.confirmation?.let { state.prints[it.id] },
+                onDismiss = vm::dismissConfirmation,
             )
         }
     }
@@ -429,11 +419,9 @@ private fun PatternDialog(adminLock: AdminLock, onUnlocked: () -> Unit, onDismis
 private fun SettingsScaffold(
     vm: AppViewModel,
     state: AppState,
-    snackbar: SnackbarHostState,
     onClose: () -> Unit,
 ) {
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = {
@@ -473,6 +461,7 @@ private fun SettingsScaffold(
             printStyle      = state.printStyle,
             onPrintStyle    = vm::setPrintStyle,
             onTestPrint      = { vm.testPrint() },
+            testPrintStatus  = state.prints[TEST_PRINT_ID],
             onAddFunLink     = vm::addFunLink,
             onRemoveFunLink  = vm::removeFunLink,
             modifier = Modifier.padding(padding).fillMaxSize(),

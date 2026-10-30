@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,11 +17,20 @@ data class AppState(
     val orders: List<Order> = emptyList(),
     val menu: MenuConfig = MenuConfig.Standard.menu,
     val isLoaded: Boolean = false,
-    val message: String? = null,
-    /** Set together with [message] when the snackbar should offer "Rückgängig" for a just-finished order. */
-    val undoDone: Order? = null,
+    /** The order just placed, shown as the full-screen confirmation until dismissed. */
+    val confirmation: Order? = null,
+    /** Print state per order id ([TEST_PRINT_ID] for the test print); shown where the print was started. */
+    val prints: Map<Long, PrintStatus> = emptyMap(),
     val printStyle: PrintStyle = PrintStyle.Receipt,
 )
+
+sealed interface PrintStatus {
+    data object Printing : PrintStatus
+    data object Printed : PrintStatus
+    data class Failed(val reason: String) : PrintStatus
+}
+
+const val TEST_PRINT_ID = -1L
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -43,8 +53,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun updateMessage(msg: String?) = _state.update { it.copy(message = msg) }
-
     private fun updateMenu(transform: (MenuConfig) -> MenuConfig) {
         val next = transform(_state.value.menu)
         if (next != _state.value.menu) {
@@ -53,12 +61,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun runPrint(order: Order, successMsg: String) = viewModelScope.launch {
+    private fun setPrint(id: Long, status: PrintStatus?) =
+        _state.update { it.copy(prints = if (status == null) it.prints - id else it.prints + (id to status)) }
+
+    private fun runPrint(order: Order, id: Long = order.id) = viewModelScope.launch {
+        setPrint(id, PrintStatus.Printing)
         // Fresh random QR link on every print, reprint and test print.
         val link = _state.value.menu.funLinks.randomOrNull()
         printer.printOrder(order, _state.value.printStyle, link)
-            .onSuccess { updateMessage(successMsg) }
-            .onFailure { e -> updateMessage("Druck fehlgeschlagen: ${e.message}") }
+            .onSuccess {
+                setPrint(id, PrintStatus.Printed)
+                // "Gedruckt" is a brief tick on the button, not a lasting state; failures stay until retried.
+                delay(3_000)
+                if (_state.value.prints[id] == PrintStatus.Printed) setPrint(id, null)
+            }
+            .onFailure { e -> setPrint(id, PrintStatus.Failed(e.message ?: "Unbekannter Fehler")) }
     }
 
     // ─── Admin lock ─────────────────────────────────────────────────────────
@@ -77,16 +94,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         (_state.value.menu.presets.firstOrNull() ?: Pizza("Margherita", MenuConfig.Standard.sauce, linkedSetOf())).let { pizza ->
             Order(number = 42, customer = "Testgast", pizza = pizza, note = "Nur ein Testdruck", diet = _state.value.menu.dietOf(pizza))
         },
-        "Testdruck (${_state.value.printStyle.label}) gesendet.",
+        TEST_PRINT_ID,
     )
 
     // ─── Orders ─────────────────────────────────────────────────────────────
 
     fun submitOrder(customer: String, pizza: Pizza, note: String) {
         val cleanCustomer = customer.trim()
-        if (cleanCustomer.isEmpty()) return updateMessage("Bitte einen Namen eingeben.")
-        // Checked here too, not just by the disabled button: the last dough ball may be gone since the screen drew.
-        val menuAfter = _state.value.menu.takeDough() ?: return updateMessage("Leider kein Teig mehr übrig.")
+        // The order button only enables with a name and dough left; this guards a stale screen, it has nothing to say.
+        if (cleanCustomer.isEmpty()) return
+        val menuAfter = _state.value.menu.takeDough() ?: return
         updateMenu { menuAfter }
 
         // ponytail: restarts at #001 after "Alle löschen"; persist a counter if numbers must stay unique all night
@@ -95,14 +112,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         _state.update { it.copy(
             orders = listOf(order) + it.orders,
-            message = "Bestellung für $cleanCustomer aufgenommen..."
+            confirmation = order,
         ) }
 
         viewModelScope.launch { orderRepo.save(_state.value.orders) }
-        runPrint(order, "Bestellung für $cleanCustomer gedruckt.")
+        runPrint(order)
     }
 
-    fun reprint(order: Order) = runPrint(order, "Erneut gedruckt: ${order.customer}.")
+    fun dismissConfirmation() = _state.update { it.copy(confirmation = null) }
+
+    fun reprint(order: Order) = runPrint(order)
 
     fun toggleDone(order: Order) {
         _state.update { s ->
@@ -112,20 +131,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             })
         }
         viewModelScope.launch { orderRepo.save(_state.value.orders) }
-
-        // A tap is easy to hit by accident: offer undo when an order just became "fertig".
-        // Undo is simply toggleDone again, which flips it back without a new message.
-        if (_state.value.orders.find { it.id == order.id }?.isDone() == true) {
-            _state.update { it.copy(message = "${order.customer}: als fertig markiert.", undoDone = order) }
-        }
     }
 
     fun clearAll() {
-        _state.update { it.copy(orders = emptyList(), message = "Alle Bestellungen gelöscht.") }
+        _state.update { it.copy(orders = emptyList(), prints = emptyMap()) }
         viewModelScope.launch { orderRepo.save(emptyList()) }
     }
-
-    fun dismissMessage() = _state.update { it.copy(message = null, undoDone = null) }
 
     // ─── Menu ───────────────────────────────────────────────────────────────
 
@@ -134,8 +145,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeSauce(sauce: Sauce) = updateMenu { m ->
-        if (m.sauces.size <= 1) { updateMessage("Mindestens eine Sauce muss bleiben."); m }
-        else m.withoutSauce(sauce)
+        // At least one sauce must stay; Settings hides the remove button on the last one.
+        if (m.sauces.size <= 1) m else m.withoutSauce(sauce)
     }
 
     fun addTopping(name: String) = name.trim().takeIf { it.isNotEmpty() }?.let { clean ->
@@ -156,9 +167,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addFunLink(teaser: String, url: String) {
         val cleanUrl = url.trim()
-        if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
-            return updateMessage("Link muss mit http:// oder https:// beginnen.")
-        }
+        if (!isWebLink(cleanUrl)) return
         updateMenu { it.withFunLink(FunLink(teaser.trim().ifEmpty { "Überraschung!" }, cleanUrl)) }
     }
 
@@ -169,7 +178,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun resetMenu() {
         // The dough count isn't part of the menu: keep it, mid-party it's still what's in the fridge.
         val newMenu = MenuConfig.Standard.menu.copy(dough = _state.value.menu.dough)
-        _state.update { it.copy(menu = newMenu, message = "Standardmenü wiederhergestellt.") }
+        _state.update { it.copy(menu = newMenu) }
         viewModelScope.launch { menuRepo.save(newMenu) }
     }
 }
+
+/** Settings only enables "add" for these, so the check lives in one place. */
+fun isWebLink(url: String) = url.trim().let { it.startsWith("http://") || it.startsWith("https://") }
