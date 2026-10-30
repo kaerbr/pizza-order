@@ -61,7 +61,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import io.github.kaerbr.pizzaorder.Diet
@@ -110,10 +110,11 @@ fun OrderScreen(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 32.dp, vertical = 32.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(Modifier.widthIn(max = 920.dp), verticalArrangement = Arrangement.spacedBy(32.dp)) {
+            // Spacing tuned so the whole form fits one portrait screen of the 8.7" party tablet (~600×1000dp).
+            Column(Modifier.widthIn(max = 920.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Section("01", "Dein Name") {
                     OutlinedTextField(
                         value = customer,
@@ -132,9 +133,9 @@ fun OrderScreen(
                     // Eigenkreation only shows a diet while it's the one being built.
                     val tiles = menu.presets.map { Triple(it.name, it.description, menu.dietOf(it)) } +
                         Triple(CUSTOM_NAME, "Sauce und Belag frei wählen", if (pizzaName == CUSTOM_NAME) diet else Diet.NONE)
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         tiles.chunked(3).forEach { row ->
-                            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 row.forEach { (name, desc, tileDiet) ->
                                     PizzaCard(name, desc, tileDiet, pizzaName == name, Modifier.weight(1f).fillMaxHeight()) {
                                         menu.presets.find { it.name == name }?.let { p ->
@@ -156,7 +157,7 @@ fun OrderScreen(
                     }
                 }
 
-                Section("04", "Belag") {
+                Section("04", "Belag", trailing = { DietLegend() }) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.toppings.forEach { t ->
                             val selected = t.name in toppingNames
@@ -165,16 +166,17 @@ fun OrderScreen(
                             }
                         }
                     }
-                    DietLegend()
                 }
 
-                Section("05", "Notiz für die Küche") {
+                // Counter sits in the header row: as supportingText it cost a line under the field.
+                Section("05", "Notiz für die Küche", trailing = {
+                    Text("${note.length} / $NOTE_MAX", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }) {
                     OutlinedTextField(
                         value = note,
                         onValueChange = { note = it.take(NOTE_MAX) },
                         placeholder = { Text("z.B. extra knusprig, ohne Oregano…") },
-                        minLines = 3,
-                        supportingText = { Text("${note.length} / $NOTE_MAX", Modifier.fillMaxWidth(), textAlign = TextAlign.End) },
+                        maxLines = 3,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                         shape = RoundedCornerShape(14.dp),
                         colors = fieldColors(),
@@ -188,7 +190,7 @@ fun OrderScreen(
         HorizontalDivider()
         Surface(color = MaterialTheme.colorScheme.surface) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 14.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
             ) {
@@ -250,7 +252,7 @@ fun OrderScreen(
                         disabledContainerColor = Color.Transparent, disabledContentColor = contentColor,
                     ),
                     modifier = Modifier
-                        .heightIn(min = 56.dp).widthIn(min = 280.dp)
+                        .heightIn(min = 52.dp).widthIn(min = 260.dp)
                         .clip(shape)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .drawBehind { drawRect(fill.copy(alpha = fillAlpha), size = size.copy(width = size.width * progress)) },
@@ -324,11 +326,12 @@ private fun fieldColors() = OutlinedTextFieldDefaults.colors(
 )
 
 @Composable
-private fun Section(step: String, title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+private fun Section(step: String, title: String, trailing: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(step, style = MaterialTheme.typography.labelMedium, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
-            Text(title, style = MaterialTheme.typography.headlineSmall)
+            Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize), modifier = Modifier.weight(1f))
+            trailing()
         }
         content()
     }
@@ -344,9 +347,10 @@ private fun PizzaCard(name: String, description: String, diet: Diet, selected: B
         color = if (selected) colors.primaryContainer else colors.surface,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) colors.primary else colors.outline),
     ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(name, style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize))
-            Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            // One line each: at three columns "Eigenkreation" used to break mid-word and stretch the whole row.
+            Text(name, style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize * 1.15f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 DietBadge(diet)
                 Spacer(Modifier.weight(1f))
@@ -368,7 +372,7 @@ private fun Pill(label: String, selected: Boolean, icon: ImageVector? = null, di
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label, style = MaterialTheme.typography.bodyLarge) },
+        label = { Text(label, style = MaterialTheme.typography.bodyMedium) },
         leadingIcon = icon?.let { { Icon(it, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
         trailingIcon = diet.icon?.let { { Icon(it, diet.label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) } },
         shape = CircleShape,
@@ -378,6 +382,6 @@ private fun Pill(label: String, selected: Boolean, icon: ImageVector? = null, di
             borderColor = MaterialTheme.colorScheme.outline,
             selectedBorderColor = MaterialTheme.colorScheme.primary,
         ),
-        modifier = Modifier.heightIn(min = 44.dp),
+        modifier = Modifier.heightIn(min = 40.dp),
     )
 }

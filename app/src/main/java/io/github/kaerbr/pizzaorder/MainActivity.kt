@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,9 +46,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -73,6 +71,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.edit
 import androidx.compose.ui.text.font.FontWeight
@@ -200,51 +199,34 @@ private fun MainScaffold(
     // queue. Done orders are still in the list but already handled.
     val pendingCount = state.orders.count { !it.isDone() }
 
+    // No top bar: on the 8.7" tablet every dp goes to the order form. Tabs, appearance and
+    // admin share one slim bottom bar instead of a TopAppBar plus an 80dp NavigationBar.
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.LocalPizza, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Pizza Party", style = MaterialTheme.typography.headlineSmall)
+        bottomBar = {
+            Surface(color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.navigationBarsPadding()) {
+                    HorizontalDivider()
+                    Row(
+                        Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(
+                            Icons.Default.LocalPizza to "Bestellen",
+                            Icons.AutoMirrored.Filled.ReceiptLong to "Bestellungen ($pendingCount)",
+                        ).forEachIndexed { page, (icon, label) ->
+                            TabItem(icon, label, selected = pagerState.currentPage == page) {
+                                scope.launch { pagerState.animateScrollToPage(page) }
+                            }
                         }
-                    },
-                    actions = {
+                        Spacer(Modifier.weight(1f))
                         IconButton(onClick = onOpenAppearance) {
                             Icon(Icons.Outlined.LightMode, contentDescription = "Aussehen")
                         }
                         IconButton(onClick = onOpenSettings) {
-                            Icon(
-                                Icons.Outlined.AdminPanelSettings,
-                                contentDescription = "Admin",
-                            )
+                            Icon(Icons.Outlined.AdminPanelSettings, contentDescription = "Admin")
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                )
-                HorizontalDivider()
-            }
-        },
-        bottomBar = {
-            Column {
-                HorizontalDivider()
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    listOf(
-                        Icons.Default.LocalPizza to "Bestellen",
-                        Icons.AutoMirrored.Filled.ReceiptLong to "Bestellungen ($pendingCount)",
-                    ).forEachIndexed { page, (icon, label) ->
-                        NavigationBarItem(
-                            selected = pagerState.currentPage == page,
-                            onClick = { scope.launch { pagerState.animateScrollToPage(page) } },
-                            icon = { Icon(icon, null) },
-                            label = { Text(label, fontWeight = FontWeight.SemiBold) },
-                            colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary),
-                        )
                     }
                 }
             }
@@ -267,6 +249,26 @@ private fun MainScaffold(
                     onReprint = vm::reprint,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun TabItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (selected) colors.primaryContainer else Color.Transparent,
+        contentColor = if (selected) colors.primary else colors.onSurfaceVariant,
+    ) {
+        Row(
+            Modifier.height(40.dp).padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(icon, null, Modifier.size(20.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
         }
     }
 }
