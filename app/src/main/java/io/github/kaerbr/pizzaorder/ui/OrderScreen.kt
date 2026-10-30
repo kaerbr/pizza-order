@@ -172,7 +172,7 @@ fun OrderScreen(
                     }
                 }
 
-                Section("04", "Belag", trailing = { DietLegend() }) {
+                Section("04", "Belag") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.toppings.forEach { t ->
                             val selected = t.name in toppingNames
@@ -196,6 +196,10 @@ fun OrderScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+
+                // Menu-style footnote: the leaves mark pizzas, sauces and toppings alike, so the key
+                // closes the form instead of sitting in one section.
+                DietLegend(Modifier.align(Alignment.CenterHorizontally))
             }
         }
 
@@ -332,8 +336,8 @@ internal fun DietBadge(diet: Diet, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun DietLegend() {
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+private fun DietLegend(modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         listOf(Diet.VEGAN, Diet.VEGETARIAN).forEach { d ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(d.icon!!, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
