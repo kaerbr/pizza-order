@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bestellleiste Entwürfe</title>
+<meta name="description" content="Drei Entwürfe für die untere Bestellleiste der Bestellseite, interaktiv zum Vergleichen." />
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  color-scheme: light;
+  --bg: #efe7db;
+  --surface: #faf6ef;
+  --surface-2: #f4ede3;
+  --ink: #2a211c;
+  --muted: #6b5849;
+  --line: #dccdbd;
+  --accent: #a63f22;
+  --accent-ink: #fff7f1;
+  --accent-soft: #f3dcd1;
+  --danger: #982d1c;
+  --ready-bg: #dbe9d4;
+  --ready-ink: #2c5230;
+  --paper: #fffdf8;
+  --shadow: 0 18px 40px -22px rgba(42, 33, 28, .55), 0 2px 6px rgba(42, 33, 28, .08);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #171210;
+  --surface: #211a17;
+  --surface-2: #2a211d;
+  --ink: #f3eae0;
+  --muted: #bca998;
+  --line: #3a2e27;
+  --accent: #e0764a;
+  --accent-ink: #1c110c;
+  --accent-soft: #3a241b;
+  --danger: #f09a86;
+  --ready-bg: #1e3324;
+  --ready-ink: #a9d6a4;
+  --paper: #2a221e;
+  --shadow: 0 22px 44px -22px rgba(0, 0, 0, .9), 0 2px 6px rgba(0, 0, 0, .4);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #171210;
+    --surface: #211a17;
+    --surface-2: #2a211d;
+    --ink: #f3eae0;
+    --muted: #bca998;
+    --line: #3a2e27;
+    --accent: #e0764a;
+    --accent-ink: #1c110c;
+    --accent-soft: #3a241b;
+    --danger: #f09a86;
+    --ready-bg: #1e3324;
+    --ready-ink: #a9d6a4;
+    --paper: #2a221e;
+    --shadow: 0 22px 44px -22px rgba(0, 0, 0, .9), 0 2px 6px rgba(0, 0, 0, .4);
+  }
+}
+
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.45 var(--font-ui);
+  padding: 32px 16px 80px;
+}
+.page { max-width: 1080px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2 { font-family: var(--font-display); font-weight: 600; margin: 0; }
+h1 { font-size: clamp(28px, 4vw, 40px); }
+h2 { font-size: 26px; }
+.lead { color: var(--muted); max-width: 64ch; margin: 6px 0 0; }
+.eyebrow { font-size: 12px; letter-spacing: .09em; text-transform: uppercase; font-weight: 600; color: var(--muted); }
+.mono { font-family: var(--font-mono); }
+
+header.top { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.theme-btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 14px; cursor: pointer;
+}
+
+/* ---------- Simulator ---------- */
+.sim {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+  padding: 18px 20px; display: grid; gap: 14px;
+  position: sticky; top: 8px; z-index: 5; box-shadow: var(--shadow);
+}
+.sim-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sim-row > .eyebrow { width: 62px; flex: none; }
+.sim input[type=text] {
+  font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 12px; padding: 8px 12px; min-width: 0; width: 180px;
+}
+.chip {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.sim details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+.sim .collapsible { display: grid; gap: 10px; margin-top: 10px; }
+.dough-val { min-width: 4ch; text-align: center; font-family: var(--font-mono); }
+
+/* ---------- Variant frames ---------- */
+.variant { display: grid; gap: 14px; }
+.variant-head { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.variant-head .num { font-family: var(--font-mono); color: var(--accent); font-size: 14px; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 24px; font-size: 14px; color: var(--muted); }
+.notes ul { margin: 4px 0 0; padding-left: 18px; }
+.notes b { color: var(--ink); font-weight: 600; }
+
+.frame {
+  position: relative; width: 100%; max-width: 640px; height: 330px;
+  margin: 0 auto; border-radius: 22px; overflow: hidden;
+  background: var(--bg); border: 8px solid #2b2522; box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+}
+:root[data-theme="dark"] .frame { border-color: #050404; }
+.form-ghost { flex: 1; min-height: 0; overflow: hidden; padding: 18px 20px; display: grid; gap: 10px; align-content: start; opacity: .55; }
+.ghost-h { height: 14px; width: 120px; border-radius: 4px; background: var(--line); }
+.ghost-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.ghost-chip { height: 30px; width: 84px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+.ghost-card { height: 52px; flex: 1; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+
+.toast {
+  position: absolute; left: 50%; top: 16px; transform: translate(-50%, -160%); opacity: 0;
+  background: var(--ink); color: var(--bg); border-radius: 999px; padding: 8px 16px;
+  font-size: 14px; white-space: nowrap; transition: transform .45s cubic-bezier(.2, .8, .2, 1), opacity .3s;
+  z-index: 3; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis;
+}
+.toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+/* =========================================================
+   A · Der Bon
+   ========================================================= */
+.bon {
+  position: relative; background: var(--paper); color: var(--ink);
+  padding: 18px 20px 14px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center;
+  filter: drop-shadow(0 -6px 10px rgba(42, 33, 28, .12));
+  /* torn-off perforation along the top edge */
+  -webkit-mask: radial-gradient(circle 6px at 9px 0, transparent 98%, #000) -9px 0 / 18px 100% repeat-x;
+          mask: radial-gradient(circle 6px at 9px 0, transparent 98%, #000) -9px 0 / 18px 100% repeat-x;
+}
+.bon-head {
+  grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 12px;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px dashed var(--line); padding-bottom: 6px; margin-bottom: -6px;
+}
+.bon-head .low { color: var(--danger); font-weight: 700; }
+.bon-lines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 22px; font-family: var(--font-mono); font-size: 14px; }
+.bon-line { display: flex; gap: 6px; min-width: 0; align-items: baseline; }
+.bon-line .k { color: var(--muted); flex: none; }
+.bon-line .dots { flex: 1; border-bottom: 2px dotted var(--line); transform: translateY(-4px); min-width: 12px; }
+.bon-line .v { flex: none; max-width: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; transition: color .4s; }
+.bon-line .v.missing { color: var(--danger); font-weight: 500; font-style: italic; }
+.bon-line .v.opt { color: var(--muted); font-weight: 400; }
+.stamp {
+  width: 96px; height: 96px; border-radius: 50%; cursor: pointer; flex: none;
+  font: 700 13px/1.15 var(--font-ui); letter-spacing: .06em; text-transform: uppercase;
+  display: grid; place-items: center; text-align: center; padding: 10px;
+  border: 2.5px dashed var(--line); color: var(--muted); background: transparent;
+  transform: rotate(-8deg); transition: all .6s cubic-bezier(.2, .8, .2, 1);
+}
+.stamp svg { width: 26px; height: 26px; display: block; margin: 0 auto 4px; }
+.stamp.ready {
+  border: 3px double var(--accent-ink); outline: 3px solid var(--accent);
+  background: var(--accent); color: var(--accent-ink); transform: rotate(-4deg);
+  box-shadow: 0 10px 22px -10px var(--accent);
+}
+.stamp.ready:hover { transform: rotate(0) scale(1.04); }
+.stamp:disabled { cursor: not-allowed; }
+.stamp.thump { animation: thump .5s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes thump { 0% { transform: rotate(-4deg) scale(1.15); } 40% { transform: rotate(-10deg) scale(.88); } 100% { transform: rotate(-4deg) scale(1); } }
+.bon.tear { animation: tear .7s ease-in forwards; }
+@keyframes tear { 60% { transform: translateY(-30px) rotate(-1deg); opacity: 1; } 100% { transform: translateY(-120%) rotate(-3deg); opacity: 0; } }
+
+/* =========================================================
+   B · Der Ofenschieber
+   ========================================================= */
+/* Floating card instead of a full-width band: nearly the page's own tone, separated by a hairline and a
+   soft shadow, so the dock no longer shouts against the light form. */
+.peel-wrap { padding: 4px 12px 12px; }
+.peel-card {
+  background: var(--surface); border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-radius: 28px; padding: 14px 14px 14px 18px; display: grid; gap: 12px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent), 0 16px 32px -20px color-mix(in srgb, var(--ink) 35%, transparent);
+}
+.peel-info { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.peel-text { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.peel-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.peel-meta .low { color: var(--danger); }
+.peel-meta.flash { animation: metaflash .6s 2; }
+@keyframes metaflash { 50% { color: var(--danger); } }
+.peel-title { font-family: var(--font-display); font-size: 20px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.steps-b { display: flex; gap: 12px; flex: none; }
+.step {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted);
+  transition: color .4s;
+}
+.step i {
+  width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px;
+  border: 1.5px solid color-mix(in srgb, var(--muted) 55%, transparent); color: transparent; transition: all .4s;
+}
+.step.ok { color: var(--ink); }
+.step.ok i { background: var(--ready-ink); border-color: var(--ready-ink); color: var(--surface); }
+.step.flash { animation: stepflash .6s 2; }
+.step.flash i { animation: stepflashi .6s 2; }
+@keyframes stepflash { 50% { color: var(--danger); } }
+@keyframes stepflashi { 50% { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 18%, transparent); } }
+
+.track {
+  --x: 0px;
+  position: relative; height: 60px; border-radius: 30px;
+  background: color-mix(in srgb, var(--ink) 5%, var(--surface));
+  border: 1.5px solid transparent; touch-action: none; user-select: none;
+  transition: background .6s;
+}
+.track.ready { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.track-fill {
+  position: absolute; inset: 0 auto 0 0; width: calc(var(--x) + 28.5px); opacity: var(--fill, 0);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--accent) 38%, transparent));
+  border-radius: 30px;
+}
+.track-label {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 0 70px;
+  font-weight: 600; font-size: 15px; color: var(--muted); text-align: center; white-space: nowrap; overflow: hidden;
+}
+.track.ready .track-label {
+  color: var(--ink);
+  background: linear-gradient(90deg, var(--muted) 0%, var(--ink) 40%, var(--accent) 50%, var(--ink) 60%, var(--muted) 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  animation: shimmer 2.6s linear infinite;
+}
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+/* Knob and oven: same size, each concentric with one round end of the track (padding box 57px high). */
+.oven {
+  --glow: .3;
+  /* Bigger than the track: next to a pizza-sized oven the pizza looked like it couldn't fit in.
+     Concentric with the track's right end (centre 28.5px in), spilling into the card's padding. */
+  position: absolute; right: -6px; top: -6px; width: 69px; height: 69px; border-radius: 50%;
+  background: radial-gradient(circle, #4a3328, #261a15 70%);
+  /* Hairline so the dark oven still reads on the dark track in dark mode. */
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 80%, #fff 10%);
+}
+.oven::before, .oven::after {
+  content: ""; position: absolute; left: 50%; bottom: 17px; width: 45px; height: 35px;
+  margin-left: -22.5px; border-radius: 22.5px 22.5px 0 0;
+}
+.oven::before { background: #140c09; }
+.oven::after {
+  background: radial-gradient(ellipse 100% 120% at 50% 100%, #ffd36a, #f0702a 45%, transparent 80%);
+  opacity: var(--glow); transition: opacity .3s;
+}
+.track.ready .oven::after { animation: flicker .6s ease-in-out infinite alternate; }
+@keyframes flicker { to { filter: brightness(1.25) saturate(1.2); } }
+.knob {
+  position: absolute; left: 4px; top: 4px; width: 49px; height: 49px; border-radius: 50%;
+  transform: translateX(var(--x)); cursor: grab; background: var(--surface);
+  box-shadow: 0 4px 10px -3px rgba(0, 0, 0, .35); display: grid; place-items: center;
+}
+.knob:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.knob svg { width: 43px; height: 43px; }
+.track.spring .knob, .track.spring .track-fill { transition: transform .45s cubic-bezier(.3, 1.5, .5, 1), width .45s cubic-bezier(.3, 1.5, .5, 1); }
+.track.locked .knob { cursor: not-allowed; }
+/* Ready: a soft accent ring on the pizza says "grab me". */
+.knob { transition: box-shadow .6s; }
+.track.ready .knob { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent), 0 6px 14px -4px color-mix(in srgb, var(--accent) 60%, transparent); }
+.track.wiggle .knob { animation: wiggle .45s; }
+@keyframes wiggle { 20%, 60% { margin-left: 8px; } 40%, 80% { margin-left: -4px; } }
+.track.done .knob { transition: transform .3s cubic-bezier(.4, 0, .2, 1), opacity .1s .3s; transform: translateX(var(--x)) scale(.45); opacity: 0; }
+
+/* =========================================================
+   C · Live-Pizza
+   ========================================================= */
+.capsule-wrap { padding: 0 14px 14px; }
+.capsule {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 26px; box-shadow: var(--shadow);
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center;
+  padding: 10px 10px 10px 12px;
+}
+.live-pizza { width: 72px; height: 72px; flex: none; transition: transform .6s cubic-bezier(.2, .8, .2, 1); }
+.live-pizza.pop { animation: pop .45s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes pop { 40% { transform: scale(1.12) rotate(8deg); } }
+.live-pizza.away { transition: transform .8s cubic-bezier(.6, -0.3, .7, 1), opacity .8s; transform: translate(420px, -40px) rotate(360deg) scale(.4); opacity: 0; }
+.cap-mid { min-width: 0; display: grid; gap: 2px; }
+.cap-title { font-family: var(--font-display); font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cap-sub { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cap-meta { display: flex; gap: 14px; align-items: center; margin-top: 2px; flex-wrap: wrap; }
+.steps { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.steps i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--muted); display: inline-block; transition: all .4s; }
+.steps i.on { background: var(--ready-ink); border-color: var(--ready-ink); }
+.balls { display: flex; gap: 3px; align-items: center; font-size: 12px; color: var(--muted); }
+.balls b { width: 8px; height: 8px; border-radius: 50%; background: #e8cf9e; box-shadow: inset 0 -1.5px 0 #c39a5a; display: inline-block; }
+.balls.low { color: var(--danger); font-weight: 600; }
+.balls.low b { background: var(--danger); box-shadow: none; }
+
+.fab {
+  --p: 0;
+  position: relative; height: 64px; min-width: 64px; border-radius: 32px; border: 0; cursor: pointer;
+  padding: 0; display: flex; align-items: center; justify-content: center; gap: 10px; flex: none;
+  background: conic-gradient(var(--accent) calc(var(--p) * 1turn), var(--line) 0);
+  transition: min-width .6s cubic-bezier(.2, .8, .2, 1), --p .7s;
+  font: 600 16px var(--font-ui); color: var(--muted);
+}
+.fab::before { content: ""; position: absolute; inset: 4px; border-radius: inherit; background: var(--surface); transition: background .6s; }
+.fab > * { position: relative; }
+.fab svg { width: 24px; height: 24px; flex: none; }
+.fab .lbl { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width .6s cubic-bezier(.2, .8, .2, 1); }
+.fab.ready { min-width: 200px; background: var(--accent); color: var(--accent-ink); padding: 0 22px; }
+.fab.ready::before { background: var(--accent); }
+.fab.ready .lbl { max-width: 160px; }
+.fab:disabled { cursor: not-allowed; }
+.fab-hint { position: absolute; bottom: calc(100% + 10px); right: 0; background: var(--ink); color: var(--bg); font-size: 12px; padding: 4px 10px; border-radius: 8px; white-space: nowrap; pointer-events: none; }
+.fab-wrap { position: relative; }
+@property --p { syntax: "<number>"; inherits: false; initial-value: 0; }
+
+@media (max-width: 560px) {
+  .bon { grid-template-columns: 1fr; }
+  .bon-lines { grid-template-columns: 1fr; }
+  .stamp { justify-self: center; width: 92px; height: 92px; }
+  .frame { height: 380px; }
+  .capsule { grid-template-columns: auto minmax(0, 1fr); }
+  .fab-wrap { grid-column: 1 / -1; }
+  .fab, .fab.ready { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Forno 12 · Bestellseite</div>
+      <h1>Drei Ideen für die Bestellleiste</h1>
+      <p class="lead">Alle drei Entwürfe hängen am selben Simulator. Gib einen Namen ein, wähl Pizza und Sauce und bestell. Der Teigzähler zählt mit.</p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button">Hell / Dunkel</button>
+  </header>
+
+  <section class="sim" aria-label="Simulator">
+    <div class="sim-row">
+      <span class="eyebrow">Name</span>
+      <input type="text" id="simName" placeholder="z.B. Anna" autocomplete="off" />
+      <span class="eyebrow" style="width:auto;margin-left:12px">Teig</span>
+      <button class="chip" type="button" data-dough="-1" aria-label="Weniger Teig">−</button>
+      <span class="dough-val" id="doughVal">8</span>
+      <button class="chip" type="button" data-dough="1" aria-label="Mehr Teig">+</button>
+      <button class="chip" type="button" id="doughInf">∞</button>
+      <button class="chip" type="button" id="simReset" style="margin-left:auto">Leeren</button>
+    </div>
+    <div class="sim-row" id="simPizzas"><span class="eyebrow">Pizza</span></div>
+    <details>
+      <summary>Sauce und Belag einzeln</summary>
+      <div class="collapsible">
+        <div class="sim-row" id="simSauces"><span class="eyebrow">Sauce</span></div>
+        <div class="sim-row" id="simToppings"><span class="eyebrow">Belag</span></div>
+      </div>
+    </details>
+  </section>
+
+  <!-- A -->
+  <section class="variant">
+    <div class="variant-head"><span class="num">A</span><h2>Der Bon</h2></div>
+    <div class="notes">
+      <div><b>Idee:</b> Die Leiste ist schon der Bon, der gleich aus dem Drucker kommt: abgerissene Kante, Monospace, Punktlinien wie auf der Karte. Was fehlt, steht rot auf dem Bon statt im Knopf. Der Knopf ist ein Stempel, der sich beim Ausfüllen von gestrichelt zu satt färbt.</div>
+      <div><b>Gut:</b><ul><li>Gäste sehen vorher genau, was gedruckt wird</li><li>Passt zur Bon- und Belegoptik der App</li></ul><b>Haken:</b><ul><li>Rund 120 dp hoch statt 64 dp, also weniger Platz fürs Formular</li></ul></div>
+    </div>
+    <div class="frame" id="frameA">
+      <div class="toast"></div>
+      <div class="form-ghost" aria-hidden="true"><div class="ghost-h"></div><div class="ghost-row"><div class="ghost-card"></div><div class="ghost-card"></div><div class="ghost-card"></div></div><div class="ghost-h"></div><div class="ghost-row"><div class="ghost-chip"></div><div class="ghost-chip"></div><div class="ghost-chip"></div><div class="ghost-chip"></div></div></div>
+      <div class="bon" id="bon">
+        <div class="bon-head"><span id="bonNo">Bon Nr. 01</span><span id="bonDough"></span></div>
+        <div class="bon-lines" id="bonLines"></div>
+        <button class="stamp" id="stamp" type="button"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- B -->
+  <section class="variant">
+    <div class="variant-head"><span class="num">B</span><h2>Der Ofenschieber</h2></div>
+    <div class="notes">
+      <div><b>Idee:</b> Bestellt wird, indem man die Pizza mit dem Schieber in den Ofen zieht. Die Leiste schwebt als ruhige Karte über dem Formular. Die Häkchen oben zeigen, was noch fehlt. Wer zu früh schiebt, sieht die Pizza wackeln und das fehlende Feld blinken. Sobald alles passt, glüht der Ofen.</div>
+      <div><b>Gut:</b><ul><li>Keine versehentlichen Doppelbestellungen auf der Party</li><li>Macht Spaß, Kinder lieben so was</li></ul><b>Haken:</b><ul><li>Ziehen ist langsamer als Tippen (Fallback: Enter oder Doppeltipp)</li></ul></div>
+    </div>
+    <div class="frame" id="frameB">
+      <div class="toast"></div>
+      <div class="form-ghost" aria-hidden="true"><div class="ghost-h"></div><div class="ghost-row"><div class="ghost-card"></div><div class="ghost-card"></div><div class="ghost-card"></div></div><div class="ghost-h"></div><div class="ghost-row"><div class="ghost-chip"></div><div class="ghost-chip"></div><div class="ghost-chip"></div></div></div>
+      <div class="peel-wrap"><div class="peel-card">
+        <div class="peel-info">
+          <div class="peel-text">
+            <div class="eyebrow peel-meta" id="peelMeta"></div>
+            <div class="peel-title" id="peelTitle"></div>
+          </div>
+          <div class="steps-b">
+            <span class="step" id="chkName"><i>✓</i>Name</span>
+            <span class="step" id="chkSauce"><i>✓</i>Sauce</span>
+          </div>
+        </div>
+        <div class="track" id="track">
+          <div class="track-fill"></div>
+          <div class="track-label" id="trackLabel"></div>
+          <div class="oven" aria-hidden="true"></div>
+          <div class="knob" id="knob" tabindex="0" role="button"></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- C -->
+  <section class="variant">
+    <div class="variant-head"><span class="num">C</span><h2>Live-Pizza</h2></div>
+    <div class="notes">
+      <div><b>Idee:</b> Eine schwebende Kapsel statt einer Leiste, passend zum schwebenden Schnellmenü oben. Links wird die Pizza live belegt (Sauce, Belag). Der runde Knopf hat einen Fortschrittsring, ist er voll, klappt er zu „Bestellen“ auf. Teig als kleine Teigkugeln.</div>
+      <div><b>Gut:</b><ul><li>Sofortiges, verspieltes Feedback bei jeder Auswahl</li><li>Lässt das Formular darüber durchscheinen und wirkt leicht</li></ul><b>Haken:</b><ul><li>Pizza-Grafik muss für eigenen Belag Fallback-Farben haben</li></ul></div>
+    </div>
+    <div class="frame" id="frameC">
+      <div class="toast"></div>
+      <div class="form-ghost" aria-hidden="true"><div class="ghost-h"></div><div class="ghost-row"><div class="ghost-card"></div><div class="ghost-card"></div><div class="ghost-card"></div></div><div class="ghost-h"></div><div class="ghost-row"><div class="ghost-chip"></div><div class="ghost-chip"></div><div class="ghost-chip"></div><div class="ghost-chip"></div></div><div class="ghost-row"><div class="ghost-chip"></div><div class="ghost-chip"></div></div></div>
+      <div class="capsule-wrap">
+        <div class="capsule">
+          <div class="live-pizza" id="livePizza"></div>
+          <div class="cap-mid">
+            <div class="cap-title" id="capTitle"></div>
+            <div class="cap-sub" id="capSub"></div>
+            <div class="cap-meta">
+              <span class="steps" id="capSteps"></span>
+              <span class="balls" id="capBalls"></span>
+            </div>
+          </div>
+          <div class="fab-wrap">
+            <button class="fab" id="fab" type="button"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const SAUCES = ['Tomate', 'Pesto al basilico'];
+const TOPPINGS = ['Zwiebeln', 'Knoblauch', 'Salami', 'Oliven', 'Käse', 'Rucola', 'Kirschtomaten', 'Pinienkerne'];
+const PRESETS = [
+  { name: 'Speciale', sauce: 'Tomate', toppings: ['Zwiebeln', 'Knoblauch', 'Rucola'] },
+  { name: 'Margherita', sauce: 'Tomate', toppings: ['Käse'] },
+  { name: 'Salami', sauce: 'Tomate', toppings: ['Salami', 'Käse'] },
+  { name: 'Pizza Verde', sauce: 'Pesto al basilico', toppings: ['Kirschtomaten', 'Pinienkerne'] },
+];
+const CUSTOM = 'Eigenkreation';
+
+const state = { name: '', sauce: '', toppings: [], custom: false, dough: 8, orderNo: 1 };
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function derived() {
+  const nothing = !state.sauce && !state.toppings.length && !state.custom;
+  const preset = PRESETS.find(p => p.sauce === state.sauce && p.toppings.length === state.toppings.length && p.toppings.every(t => state.toppings.includes(t)));
+  const pizza = preset ? preset.name : (nothing ? null : CUSTOM);
+  const name = state.name.trim();
+  const steps = [!!name, !!state.sauce];
+  const soldOut = state.dough === 0;
+  const complete = steps.every(Boolean) && !soldOut;
+  const label = soldOut ? 'Kein Teig mehr' : !name ? 'Erst Namen eingeben' : !state.sauce ? 'Erst Sauce wählen' : 'Bestellen & drucken';
+  const low = state.dough !== null && state.dough <= 3;
+  return { pizza, name, steps, soldOut, complete, label, low, progress: steps.filter(Boolean).length / steps.length, diet: nothing ? '' : 'Vegan' };
+}
+const doughText = () => state.dough === null ? '' : state.dough === 0 ? 'Ausverkauft' : `Noch ${state.dough} ${state.dough === 1 ? 'Pizza' : 'Pizzen'}`;
+
+const PRINT_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>';
+
+/* ---------- pizza drawing ---------- */
+const TOP_LOOK = {
+  'Zwiebeln': (x, y) => `<ellipse cx="${x}" cy="${y}" rx="6" ry="3.5" fill="none" stroke="#c9a3d6" stroke-width="1.8"/>`,
+  'Knoblauch': (x, y) => `<ellipse cx="${x}" cy="${y}" rx="2.6" ry="2" fill="#f6efdf"/>`,
+  'Salami': (x, y) => `<circle cx="${x}" cy="${y}" r="6.5" fill="#a9352a"/><circle cx="${x - 2}" cy="${y - 1}" r="1.2" fill="#e6a39a"/>`,
+  'Oliven': (x, y) => `<circle cx="${x}" cy="${y}" r="3.4" fill="none" stroke="#2b2622" stroke-width="2.2"/>`,
+  'Käse': (x, y) => `<path d="M${x - 7} ${y} q3 -6 7 -3 q5 -3 7 2 q-2 6 -7 4 q-5 3 -7 -3z" fill="#f7e3a3" opacity=".95"/>`,
+  'Rucola': (x, y) => `<path d="M${x - 6} ${y + 2} q6 -10 12 -2 q-6 6 -12 2z" fill="#4f8a35"/>`,
+  'Kirschtomaten': (x, y) => `<circle cx="${x}" cy="${y}" r="4.6" fill="#d8452f"/><circle cx="${x}" cy="${y}" r="2" fill="#f2a28f"/>`,
+  'Pinienkerne': (x, y) => `<ellipse cx="${x}" cy="${y}" rx="2.6" ry="1.5" fill="#ead6a3" transform="rotate(${(x * 7) % 180} ${x} ${y})"/>`,
+};
+function rng(seed) { let s = seed; return () => (s = (s * 9301 + 49297) % 233280) / 233280; }
+function pizzaSVG() {
+  const sauceFill = state.sauce === 'Tomate' ? '#c8432a' : state.sauce ? '#5f8d3a' : 'none';
+  let tops = '';
+  state.toppings.forEach(t => {
+    const r = rng([...t].reduce((a, c) => a + c.charCodeAt(0), 0));
+    const look = TOP_LOOK[t] || ((x, y) => `<circle cx="${x}" cy="${y}" r="3.5" fill="#8a7a6a"/>`);
+    for (let i = 0; i < 6; i++) {
+      const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 30;
+      tops += look((50 + Math.cos(a) * d).toFixed(1), (50 + Math.sin(a) * d).toFixed(1));
+    }
+  });
+  const empty = !state.sauce && !state.toppings.length;
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">
+    <circle cx="50" cy="50" r="47" fill="${empty ? 'none' : '#e3b877'}" stroke="${empty ? 'var(--line)' : '#c08a49'}" stroke-width="${empty ? 2 : 1.5}" ${empty ? 'stroke-dasharray="5 5"' : ''}/>
+    ${empty ? '' : '<circle cx="50" cy="50" r="40" fill="#f1dcb2"/>'}
+    <circle cx="50" cy="50" r="39" fill="${sauceFill}" opacity=".95" style="transition:fill .4s"/>
+    ${tops}
+  </svg>`;
+}
+
+/* ---------- toast + submit ---------- */
+function toast(frame, msg) {
+  const el = $('.toast', frame);
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+function submit(frameId, after) {
+  const d = derived();
+  if (!d.complete) return false;
+  toast($('#' + frameId), `Bon ${String(state.orderNo).padStart(2, '0')} gedruckt: ${d.pizza} für ${d.name}`);
+  setTimeout(() => {
+    state.orderNo++;
+    if (state.dough !== null) state.dough = Math.max(0, state.dough - 1);
+    Object.assign(state, { name: '', sauce: '', toppings: [], custom: false });
+    $('#simName').value = '';
+    after && after();
+    render();
+  }, 650);
+  return true;
+}
+
+/* ---------- A · Bon ---------- */
+function renderA(d) {
+  const line = (k, v, cls = '') => `<div class="bon-line"><span class="k">${k}</span><span class="dots"></span><span class="v ${cls}">${esc(v)}</span></div>`;
+  $('#bonNo').textContent = `Bon Nr. ${String(state.orderNo).padStart(2, '0')}${d.diet ? ' · ' + d.diet : ''}`;
+  const bd = $('#bonDough');
+  bd.textContent = doughText(); bd.className = d.low ? 'low' : '';
+  $('#bonLines').innerHTML =
+    line('Für', d.name || 'fehlt', d.name ? '' : 'missing') +
+    line('Pizza', d.pizza || 'noch offen', d.pizza ? '' : 'opt') +
+    line('Sauce', state.sauce || 'fehlt', state.sauce ? '' : 'missing') +
+    line('Belag', state.toppings.length ? state.toppings.join(', ') : 'ohne', state.toppings.length ? '' : 'opt');
+  const st = $('#stamp');
+  st.classList.toggle('ready', d.complete);
+  st.disabled = !d.complete;
+  st.innerHTML = PRINT_ICON + (d.soldOut ? 'Kein Teig' : d.complete ? 'Ab in den Ofen' : 'Noch nicht');
+}
+$('#stamp').addEventListener('click', () => {
+  const st = $('#stamp'), bon = $('#bon');
+  st.classList.remove('thump'); void st.offsetWidth; st.classList.add('thump');
+  submit('frameA', () => { bon.classList.add('tear'); setTimeout(() => bon.classList.remove('tear'), 750); });
+});
+
+/* ---------- B · Ofenschieber ---------- */
+const track = $('#track'), knob = $('#knob');
+function renderB(d) {
+  $('#peelTitle').textContent = !d.pizza ? 'Noch keine Pizza gewählt' : d.name ? `${d.pizza} für ${d.name}` : d.pizza;
+  $('#chkName').className = 'step' + (d.steps[0] ? ' ok' : '');
+  $('#chkSauce').className = 'step' + (d.steps[1] ? ' ok' : '');
+  // Dough rides in the meta line instead of a third check.
+  const dough = state.dough === null ? '' : ` · <span class="${d.low ? 'low' : ''}">${doughText()}</span>`;
+  $('#peelMeta').innerHTML = `Bon #${String(state.orderNo).padStart(3, '0')}${d.diet ? ' · ' + d.diet : ''}${dough}`;
+  track.classList.toggle('ready', d.complete);
+  setX(parseFloat(track.style.getPropertyValue('--x')) || 0);
+  track.classList.toggle('locked', !d.complete);
+  $('#trackLabel').textContent = d.complete ? 'Pizza in den Ofen schieben  ›››' : d.label;
+  knob.innerHTML = pizzaSVG();
+  knob.setAttribute('aria-label', d.complete ? 'Bestellen: Pizza in den Ofen schieben' : d.label);
+}
+function maxX() { return track.clientWidth - 28.5 - 34.5 - 4 - 49; }
+function setX(x) {
+  track.style.setProperty('--x', x + 'px');
+  // Label gets out of the way, embers flare as the pizza nears the oven.
+  const p = Math.min(1, x / maxX());
+  $('#trackLabel').style.opacity = 1 - Math.min(1, p * 1.6);
+  track.style.setProperty('--fill', Math.min(1, p * 6));
+  $('.oven', track).style.setProperty('--glow', (track.classList.contains('ready') ? .7 : .3) + p * .3);
+}
+function nudgeMissing() {
+  const d = derived();
+  track.classList.remove('wiggle'); void track.offsetWidth; track.classList.add('wiggle');
+  const miss = !d.steps[0] ? '#chkName' : !d.steps[1] ? '#chkSauce' : '#peelMeta';
+  const el = $(miss); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+function finishB() {
+  track.classList.add('spring'); setX(track.clientWidth - 57); track.classList.add('done');
+  submit('frameB', () => {});
+  setTimeout(() => { track.classList.remove('done'); setX(0); setTimeout(() => track.classList.remove('spring'), 450); }, 700);
+}
+let drag = null;
+knob.addEventListener('pointerdown', e => {
+  if (!derived().complete) { nudgeMissing(); return; }
+  drag = { start: e.clientX }; knob.setPointerCapture(e.pointerId); track.classList.remove('spring');
+});
+knob.addEventListener('pointermove', e => {
+  if (!drag) return;
+  setX(Math.max(0, Math.min(maxX(), e.clientX - drag.start)));
+});
+knob.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const x = Math.max(0, e.clientX - drag.start); drag = null;
+  if (x > maxX() * 0.85) finishB();
+  else { track.classList.add('spring'); setX(0); }
+});
+knob.addEventListener('dblclick', () => derived().complete ? finishB() : nudgeMissing());
+knob.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  e.preventDefault(); derived().complete ? finishB() : nudgeMissing();
+});
+
+/* ---------- C · Live-Pizza ---------- */
+let lastSig = '';
+function renderC(d) {
+  const lp = $('#livePizza');
+  lp.innerHTML = pizzaSVG();
+  const sig = state.sauce + state.toppings.join();
+  if (sig !== lastSig && sig) { lp.classList.remove('pop'); void lp.offsetWidth; lp.classList.add('pop'); }
+  lastSig = sig;
+  $('#capTitle').textContent = !d.pizza ? 'Noch keine Pizza gewählt' : d.name ? `${d.pizza} für ${d.name}` : d.pizza;
+  $('#capSub').textContent = [state.sauce, ...state.toppings].join(' · ') + (d.diet ? `  ·  ${d.diet}` : '') || 'Wähle unten eine Pizza oder bau dir eine';
+  $('#capSteps').innerHTML = `<i class="${d.steps[0] ? 'on' : ''}"></i>Name <i class="${d.steps[1] ? 'on' : ''}"></i>Sauce`;
+  const b = $('#capBalls');
+  if (state.dough === null) b.innerHTML = '';
+  else {
+    const n = Math.min(state.dough, 12);
+    b.className = 'balls' + (d.low ? ' low' : '');
+    b.innerHTML = '<b></b>'.repeat(n) + `<span style="margin-left:4px">${d.soldOut ? 'Ausverkauft' : state.dough > 12 ? `${state.dough} Teige` : state.dough === 1 ? 'letzter Teig' : ''}</span>`;
+  }
+  const f = $('#fab');
+  f.style.setProperty('--p', d.soldOut ? 0 : d.progress);
+  f.classList.toggle('ready', d.complete);
+  f.disabled = !d.complete;
+  f.setAttribute('aria-label', d.label);
+  f.title = d.label;
+  f.innerHTML = PRINT_ICON + `<span class="lbl">Bestellen</span>`;
+}
+$('#fab').addEventListener('click', () => {
+  const lp = $('#livePizza');
+  if (submit('frameC', () => {})) {
+    lp.classList.add('away');
+    setTimeout(() => lp.classList.remove('away'), 900);
+  }
+});
+
+/* ---------- simulator ---------- */
+function chip(label, pressed, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'chip'; b.textContent = label;
+  b.setAttribute('aria-pressed', pressed); b.onclick = onClick;
+  return b;
+}
+function renderSim(d) {
+  const row = (id, items) => { const r = $(id); [...r.querySelectorAll('.chip')].forEach(c => c.remove()); items.forEach(i => r.append(i)); };
+  row('#simPizzas', [...PRESETS.map(p => chip(p.name, d.pizza === p.name, () => { Object.assign(state, { sauce: p.sauce, toppings: [...p.toppings] }); render(); })),
+    chip(CUSTOM, d.pizza === CUSTOM, () => { Object.assign(state, { sauce: '', toppings: [], custom: true }); render(); })]);
+  row('#simSauces', SAUCES.map(s => chip(s, state.sauce === s, () => { state.sauce = s; render(); })));
+  row('#simToppings', TOPPINGS.map(t => chip(t, state.toppings.includes(t), () => {
+    state.toppings = state.toppings.includes(t) ? state.toppings.filter(x => x !== t) : [...state.toppings, t]; render();
+  })));
+  $('#doughVal').textContent = state.dough === null ? '∞' : state.dough;
+  $('#doughInf').setAttribute('aria-pressed', state.dough === null);
+}
+function render() {
+  const d = derived();
+  renderSim(d); renderA(d); renderB(d); renderC(d);
+}
+$('#simName').addEventListener('input', e => { state.name = e.target.value; render(); });
+document.querySelectorAll('[data-dough]').forEach(b => b.onclick = () => {
+  state.dough = Math.max(0, (state.dough ?? 8) + Number(b.dataset.dough)); render();
+});
+$('#doughInf').onclick = () => { state.dough = state.dough === null ? 8 : null; render(); };
+$('#simReset').onclick = () => { Object.assign(state, { name: '', sauce: '', toppings: [], custom: false }); $('#simName').value = ''; render(); };
+
+$('#themeBtn').onclick = () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+};
+window.addEventListener('resize', () => setX(0));
+render();
+</script>
+</body>
+</html>
