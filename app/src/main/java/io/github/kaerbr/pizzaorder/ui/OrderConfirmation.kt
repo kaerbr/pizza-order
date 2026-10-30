@@ -151,6 +151,8 @@ private fun Slip(markup: String) {
             .background(Paper, TornEdge)
             .padding(start = margin, end = margin, top = 28.dp, bottom = 36.dp),
     ) {
+        // Read once here: inside Column the BoxWithConstraints scope isn't an implicit receiver.
+        val paperWidth = maxWidth
         // Size the monospace font so exactly LINE_CHARS fit across, like the printer's 32 columns.
         val measurer = rememberTextMeasurer()
         val density = LocalDensity.current
@@ -158,10 +160,10 @@ private fun Slip(markup: String) {
         val pxPerSp = remember(measurer, density) {
             measurer.measure("0".repeat(10), TextStyle(fontFamily = FontFamily.Monospace, fontSize = 100.sp)).size.width / 1000f
         }
-        val fontSize = (with(density) { maxWidth.toPx() } / Printout.LINE_CHARS / pxPerSp).sp
+        val fontSize = (with(density) { paperWidth.toPx() } / Printout.LINE_CHARS / pxPerSp).sp
         val lines = remember(markup) { Printout.parse(markup) }
         Column {
-            lines.forEach { PaperLine(it, fontSize, maxWidth) }
+            lines.forEach { PaperLine(it, fontSize, paperWidth) }
         }
     }
 }
