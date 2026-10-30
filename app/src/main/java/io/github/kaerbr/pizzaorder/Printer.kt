@@ -34,7 +34,7 @@ class Printer(private val context: Context) {
      * @return Result.success on print, Result.failure with a user-facing German
      *         message on any failure (no permission, no printer, BT off, etc.).
      */
-    suspend fun printOrder(order: Order, style: PrintStyle, link: FunLink?): Result<Unit> = mutex.withLock { withContext(Dispatchers.IO) {
+    suspend fun print(markup: String): Result<Unit> = mutex.withLock { withContext(Dispatchers.IO) {
         runCatching<Unit> {
             check(hasBluetoothPermission()) {
                 "Bluetooth-Berechtigung fehlt. In den App-Einstellungen erlauben."
@@ -54,7 +54,7 @@ class Printer(private val context: Context) {
                 EscPosCharsetEncoding("windows-1252", 16),
             )
             try {
-                printer.printFormattedTextAndCut(style.format(order, link))
+                printer.printFormattedTextAndCut(markup)
             } finally {
                 runCatching { printer.disconnectPrinter() }
             }

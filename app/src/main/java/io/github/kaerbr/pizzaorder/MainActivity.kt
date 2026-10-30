@@ -243,8 +243,8 @@ private fun MainScaffold(
             )
             // Last child, so the slip and its scrim cover the quick menu too.
             OrderConfirmation(
-                order = state.confirmation,
-                printStatus = state.confirmation?.let { state.prints[it.id] },
+                confirmation = state.confirmation,
+                printStatus = state.confirmation?.let { state.prints[it.order.id] },
                 onDismiss = vm::dismissConfirmation,
             )
         }

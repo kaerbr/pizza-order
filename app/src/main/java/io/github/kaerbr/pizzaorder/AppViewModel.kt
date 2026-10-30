@@ -18,11 +18,14 @@ data class AppState(
     val menu: MenuConfig = MenuConfig.Standard.menu,
     val isLoaded: Boolean = false,
     /** The order just placed, shown as the full-screen confirmation until dismissed. */
-    val confirmation: Order? = null,
+    val confirmation: Confirmation? = null,
     /** Print state per order id ([TEST_PRINT_ID] for the test print); shown where the print was started. */
     val prints: Map<Long, PrintStatus> = emptyMap(),
     val printStyle: PrintStyle = PrintStyle.Receipt,
 )
+
+/** [printout] is the exact markup sent to the printer, so the on-screen slip matches the paper one. */
+data class Confirmation(val order: Order, val printout: String)
 
 sealed interface PrintStatus {
     data object Printing : PrintStatus
@@ -64,11 +67,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private fun setPrint(id: Long, status: PrintStatus?) =
         _state.update { it.copy(prints = if (status == null) it.prints - id else it.prints + (id to status)) }
 
-    private fun runPrint(order: Order, id: Long = order.id) = viewModelScope.launch {
+    // Fresh random QR link on every print, reprint and test print.
+    private fun printout(order: Order) = _state.value.printStyle.format(order, _state.value.menu.funLinks.randomOrNull())
+
+    private fun runPrint(markup: String, id: Long) = viewModelScope.launch {
         setPrint(id, PrintStatus.Printing)
-        // Fresh random QR link on every print, reprint and test print.
-        val link = _state.value.menu.funLinks.randomOrNull()
-        printer.printOrder(order, _state.value.printStyle, link)
+        printer.print(markup)
             .onSuccess {
                 setPrint(id, PrintStatus.Printed)
                 // "Gedruckt" is a brief tick on the button, not a lasting state; failures stay until retried.
@@ -91,9 +95,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun testPrint() = runPrint(
-        (_state.value.menu.presets.firstOrNull() ?: Pizza("Margherita", MenuConfig.Standard.sauce, linkedSetOf())).let { pizza ->
+        printout((_state.value.menu.presets.firstOrNull() ?: Pizza("Margherita", MenuConfig.Standard.sauce, linkedSetOf())).let { pizza ->
             Order(number = 42, customer = "Testgast", pizza = pizza, note = "Nur ein Testdruck", diet = _state.value.menu.dietOf(pizza))
-        },
+        }),
         TEST_PRINT_ID,
     )
 
@@ -110,18 +114,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val number = (_state.value.orders.maxOfOrNull { it.number } ?: 0) + 1
         val order = Order(number = number, customer = cleanCustomer, pizza = pizza, note = note.trim(), diet = _state.value.menu.dietOf(pizza))
 
+        val markup = printout(order)
         _state.update { it.copy(
             orders = listOf(order) + it.orders,
-            confirmation = order,
+            confirmation = Confirmation(order, markup),
         ) }
 
         viewModelScope.launch { orderRepo.save(_state.value.orders) }
-        runPrint(order)
+        runPrint(markup, order.id)
     }
 
     fun dismissConfirmation() = _state.update { it.copy(confirmation = null) }
 
-    fun reprint(order: Order) = runPrint(order)
+    fun reprint(order: Order) = runPrint(printout(order), order.id)
 
     fun toggleDone(order: Order) {
         _state.update { s ->
