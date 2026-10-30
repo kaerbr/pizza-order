@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/kaerbr/[secure]/compare/v1.3.0...v1.4.0) (2026-10-30)
+
+
+### Features
+
+* Bestätigungs-Bon fährt mit Druckergeschwindigkeit herein ([da93be8](https://github.com/kaerbr/[secure]/commit/da93be8b6d48ab3995194306b461bfad0d1560cd))
+
 # [1.3.0](https://github.com/kaerbr/[secure]/compare/v1.2.0...v1.3.0) (2026-10-30)
 
 
