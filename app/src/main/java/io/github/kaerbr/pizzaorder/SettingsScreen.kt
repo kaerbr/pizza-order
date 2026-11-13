@@ -2,7 +2,10 @@ package io.github.kaerbr.pizzaorder.ui
 
 import android.app.ActivityManager
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -63,18 +66,26 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.kaerbr.pizzaorder.Allergen
+import io.github.kaerbr.pizzaorder.CUSTOM_NAME
 import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.DoughStock
 import io.github.kaerbr.pizzaorder.FunLink
+import io.github.kaerbr.pizzaorder.GuestRuntime
+import io.github.kaerbr.pizzaorder.LocalAddress
+import io.github.kaerbr.pizzaorder.GuestStatus
+import io.github.kaerbr.pizzaorder.LocalNetworkPermission
 import io.github.kaerbr.pizzaorder.MenuConfig
 import io.github.kaerbr.pizzaorder.Order
+import io.github.kaerbr.pizzaorder.OrderStatus
 import io.github.kaerbr.pizzaorder.Pizza
 import io.github.kaerbr.pizzaorder.Sauce
 import io.github.kaerbr.pizzaorder.PrintStatus
@@ -84,7 +95,7 @@ import io.github.kaerbr.pizzaorder.Topping
 import io.github.kaerbr.pizzaorder.topPizzas
 import kotlinx.coroutines.delay
 
-private val ADMIN_TABS = listOf("Übersicht", "Menü", "Ausdruck", "QR-Links")
+private val ADMIN_TABS = listOf("Übersicht", "Menü", "Ausdruck", "QR-Links zum Bon")
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -106,7 +117,14 @@ fun SettingsScreen(
     menuFileMessage: String?,
     onSetDoughToday: (Int?) -> Unit,
     onAdjustDough: (Int) -> Unit,
+    onSetMaxOpenOrders: (Int?) -> Unit,
     onClearAllOrders: () -> Unit,
+    guest: GuestRuntime,
+    onSetGuestEnabled: (Boolean) -> Unit,
+    onSetGuestPort: (Int) -> Unit,
+    onNewGuestCode: () -> Unit,
+    onPrintGuestCard: (String) -> Unit,
+    guestCardStatus: PrintStatus?,
     printStyle: PrintStyle,
     onPrintStyle: (PrintStyle) -> Unit,
     onTestPrint: () -> Unit,
@@ -182,11 +200,14 @@ fun SettingsScreen(
                     0 -> {
                         Section(title = "Heute") {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                val open = orders.count { !it.isDone() }
+                                val waiting = orders.count { it.status == OrderStatus.QUEUED }
+                                val baking = orders.count { it.status == OrderStatus.BAKING }
+                                val done = orders.count { it.status == OrderStatus.READY }
                                 StatTile("Bestellungen", orders.size, Modifier.weight(1f))
-                                StatTile("Offen", open, Modifier.weight(1f))
-                                StatTile("Fertig", orders.size - open, Modifier.weight(1f))
-                                StatTile("QR-Links", menu.funLinks.size, Modifier.weight(1f))
+                                StatTile(OrderStatus.QUEUED.label, waiting, Modifier.weight(1f))
+                                StatTile(OrderStatus.BAKING.label, baking, Modifier.weight(1f))
+                                StatTile(OrderStatus.READY.label, done, Modifier.weight(1f))
+                                StatTile("QR-Links zum Bon", menu.funLinks.size, Modifier.weight(1f))
                             }
                         }
                         orders.topPizzas().takeIf { it.isNotEmpty() }?.let { top ->
@@ -201,6 +222,19 @@ fun SettingsScreen(
                         }
                         Section(title = "Teig") {
                             DoughSetting(menu.dough, onSetDoughToday, onAdjustDough)
+                        }
+                        Section(title = "Annahme") {
+                            OpenOrdersSetting(menu.openOrderLimit, orders.count { !it.isDone() }, onSetMaxOpenOrders)
+                        }
+                        Section(title = "Gäste-Bestellung") {
+                            GuestSetting(
+                                guest = guest,
+                                onEnabled = onSetGuestEnabled,
+                                onPort = onSetGuestPort,
+                                onNewCode = onNewGuestCode,
+                                onPrintCard = onPrintGuestCard,
+                                cardStatus = guestCardStatus,
+                            )
                         }
                         Section(title = "Drucker") {
                             Text("Ausdruck-Design: ${printStyle.label}", style = MaterialTheme.typography.bodyLarge)
@@ -335,7 +369,14 @@ fun SettingsScreen(
                         TestPrintButton(onTestPrint, testPrintStatus)
                     }
 
-                    else -> Section(title = "QR-Links") {
+                    else -> Section(title = "QR-Links zum Bon") {
+                        Text(
+                            "Diese Codes landen auf dem Küchenbon, etwa zu einem Pizza-Witz. Den QR-Code für " +
+                                "Gäste findest du im Schnellmenü unter „QR-Code für Gäste“ und im Abschnitt " +
+                                "„Gäste-Bestellung“ im Übersicht-Tab.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         if (menu.funLinks.isEmpty()) {
                             Text(
                                 "(keine – Ausdruck ohne QR-Code)",
@@ -553,7 +594,202 @@ private fun DoughSetting(dough: DoughStock?, onSet: (Int?) -> Unit, onAdjust: (I
     }
 }
 
+/**
+ * How many open orders are taken at once. The dough stock is the physical limit and stays the real one;
+ * this is the organisational one for a kitchen that can't keep up, and it only refuses, it never
+ * finishes anything for the kitchen.
+ */
+@Composable
+private fun OpenOrdersSetting(limit: Int?, open: Int, onSet: (Int?) -> Unit) {
+    var count by remember(limit) { mutableStateOf(limit?.toString().orEmpty()) }
+    val quantity = count.toIntOrNull()
+
+    Text(
+        when {
+            limit == null -> "Kein Limit: Es werden so viele Bestellungen angenommen, wie der Teig hergibt."
+            open >= limit -> "Limit erreicht: $open offene Bestellungen, weitere werden abgelehnt."
+            else -> "Noch ${limit - open} von $limit offenen Bestellungen möglich."
+        },
+        style = MaterialTheme.typography.bodyLarge,
+        color = if (limit != null && open >= limit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+    )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AppTextField(
+            value = count,
+            onValueChange = { new -> count = new.filter(Char::isDigit).take(3) },
+            label = { Text("Offene Bestellungen") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            onClick = { onSet(quantity) },
+            enabled = quantity != null && quantity > 0,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.height(56.dp),
+        ) { Text("Setzen") }
+        if (limit != null) {
+            TextButton(onClick = { onSet(null) }) { Text("Kein Limit") }
+        }
+    }
+}
+
 // ─── Section building blocks ───────────────────────────────────────────────
+
+/**
+ * The switch for the guest server: on/off, port, join code — and, while it runs, the guest QR code and the
+ * button that prints the same code as a card for the table.
+ *
+ * The panel is not the only place for the code any more (see ui/GuestQrScreen.kt), but it stays here because
+ * starting the server and handing out the code are one job. Only the admin sees this — the code is exactly
+ * what keeps a neighbour out.
+ */
+@Composable
+private fun GuestSetting(
+    guest: GuestRuntime,
+    onEnabled: (Boolean) -> Unit,
+    onPort: (Int) -> Unit,
+    onNewCode: () -> Unit,
+    onPrintCard: (String) -> Unit,
+    cardStatus: PrintStatus?,
+) {
+    var port by remember(guest.port) { mutableStateOf(guest.port.toString()) }
+    var confirmNewCode by remember { mutableStateOf(false) }
+    val parsedPort = port.toIntOrNull()?.takeIf { it in 1024..65535 }
+
+    val context = LocalContext.current
+    var missingPermission by remember { mutableStateOf(LocalNetworkPermission.isMissing(context)) }
+    val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        missingPermission = !granted
+        // Granted: finish what the switch was asked to do. Denied: the panel says so, and the switch stays off.
+        if (granted) onEnabled(true)
+    }
+
+    if (confirmNewCode) {
+        DangerDialog(
+            title = "Neuen Code erzeugen?",
+            text = "Jeder QR-Code und jede Adresse, die schon draußen ist, funktioniert danach nicht mehr.",
+            action = "Neu erzeugen",
+            onConfirm = { onNewCode(); confirmNewCode = false },
+            onDismiss = { confirmNewCode = false },
+        )
+    }
+
+    Text(
+        when (val status = guest.status) {
+            GuestStatus.Off -> "Aus: Gäste können nur am Tablet bestellen."
+            GuestStatus.Starting -> "Startet …"
+            is GuestStatus.Running -> "Läuft auf Port ${status.port}. Gäste im selben WLAN können bestellen."
+            is GuestStatus.Failed -> status.message
+        },
+        style = MaterialTheme.typography.bodyLarge,
+        color = if (guest.status is GuestStatus.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+    )
+    Text(
+        "Der Server bleibt aus dem Internet unerreichbar: er hört nur im lokalen Netz. " +
+            "Reicht das WLAN die Geräte nicht durch (Gäste-WLAN), hilft ein Hotspot am Tablet — den Code " +
+            "zeigt die App dann auch dafür.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    if (missingPermission) {
+        // Android 17 blocks LAN traffic — inbound included — until this is granted, and it does so silently:
+        // the server would report "läuft" while every phone times out. So: say it, and ask for it.
+        Text(
+            "Android erlaubt Apps im lokalen Netz nur mit dieser Berechtigung. Ohne sie startet der Server, " +
+                "aber kein Handy kommt durch.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+        OutlinedButton(
+            onClick = { askPermission.launch(LocalNetworkPermission.name) },
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Zugriff auf lokales Netz erlauben") }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AppTextField(
+            value = port,
+            onValueChange = { new -> port = new.filter(Char::isDigit).take(5) },
+            label = { Text("Port") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            onClick = { parsedPort?.let(onPort) },
+            enabled = parsedPort != null && parsedPort != guest.port && guest.enabled,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.height(56.dp),
+        ) { Text("Setzen") }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(
+            onClick = { onEnabled(!guest.enabled) },
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.weight(1f).height(56.dp),
+        ) { Text(if (guest.enabled) "Server ausschalten" else "Server einschalten") }
+        if (guest.enabled) {
+            OutlinedButton(onClick = { confirmNewCode = true }, shape = RoundedCornerShape(10.dp), modifier = Modifier.height(56.dp)) {
+                Text("Neuer Code")
+            }
+        }
+    }
+
+    if (guest.enabled) {
+        // Nothing secret is on this screen that a guest standing at the tablet couldn't read anyway; the code's
+        // job is to keep phones *outside* the party out, not the person the admin handed the tablet to.
+        Text("Code: ${guest.code}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+
+        val ip = rememberLocalIpv4()
+        when {
+            // Nothing listens, so a code would point at a closed port. The status line above says why.
+            guest.status is GuestStatus.Failed -> Unit
+            // No IPv4 means no address a phone could reach, and the code would encode "http://null:8080".
+            // The server may well be "läuft" either way: it binds 0.0.0.0, which is no WLAN at all.
+            ip == null -> Text(
+                "Kein WLAN und kein Hotspot. Das Tablet hängt an keinem Netz, das ein Handy erreichen kann " +
+                    "— Mobilfunk zählt nicht. WLAN verbinden, oder am Tablet einen Hotspot aufmachen und " +
+                    "die Gäste dort einloggen.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            else -> {
+                val url = LocalAddress.url(ip, guest.port, guest.code)
+                // On the screen, not only on paper: a DHCP lease outlives yesterday's printout, and the panel
+                // picks up a changed address while it is open.
+                GuestQrCode(url, Modifier.size(220.dp).background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp))
+                // Kopierbar statt nur lesbar: der Weg zum Gast führt über einen Messenger, nicht über Abtippen.
+                GuestUrl(url)
+                // The same code on paper: the tablet can stay in the kitchen while a card lies on the table.
+                OutlinedButton(
+                    onClick = { onPrintCard(url) },
+                    enabled = cardStatus != PrintStatus.Printing,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(cardStatus.icon, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(cardStatus.label("QR-Bon für den Tisch drucken"))
+                }
+                if (cardStatus is PrintStatus.Failed) {
+                    Text(cardStatus.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+                Text(
+                    "Gäste scannen den Code. Findet ein Handy die Seite nicht, obwohl das WLAN passt, " +
+                        "sperrt das Gäste-WLAN die Geräte gegenseitig — dann am Tablet einen Hotspot aufmachen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {

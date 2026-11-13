@@ -1,105 +1,53 @@
 package io.github.kaerbr.pizzaorder
 
 import android.app.Application
-import android.content.Context
 import android.net.Uri
-import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.builtins.ListSerializer
 
-data class AppState(
-    val orders: List<Order> = emptyList(),
-    val menu: MenuConfig = MenuConfig.Standard.menu,
-    /** The order just placed, shown as the full-screen confirmation until dismissed. */
-    val confirmation: Confirmation? = null,
-    /** Print state per order id ([TEST_PRINT_ID] for the test print); shown where the print was started. */
-    val prints: Map<Long, PrintStatus> = emptyMap(),
-    val printStyle: PrintStyle = PrintStyle.Receipt,
-    /** Outcome of the last menu export or import, shown next to its buttons. */
-    val menuFileMessage: String? = null,
-) {
-    // ponytail: restarts at #001 after "Alle löschen"; persist a counter if numbers must stay unique all night
-    val nextNumber get() = (orders.maxOfOrNull { it.number } ?: 0) + 1
-
-    /** Open orders the kitchen has no paper for; the printout is its only signal. One still printing doesn't count yet. */
-    val unprinted get() = orders.count { !it.isDone() && !it.printed && prints[it.id] != PrintStatus.Printing }
-}
-
-/** [printout] is the exact markup sent to the printer, so the on-screen slip matches the paper one. */
-data class Confirmation(val order: Order, val printout: String)
-
-sealed interface PrintStatus {
-    data object Printing : PrintStatus
-    data object Printed : PrintStatus
-    data class Failed(val reason: String) : PrintStatus
-}
-
-const val TEST_PRINT_ID = -1L
-
+/**
+ * The Android half of the order desk: files, printer, preferences and the admin lock.
+ * Everything that changes orders lives in [OrderService]; this delegates and keeps the Compose flow.
+ *
+ * The service comes from [OrderDesk], not from here: the HTTP server takes numbers and dough from the same
+ * instance, or two guests would get the same number again.
+ */
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val orderRepo = JsonStore(application, "orders.json", ListSerializer(Order.serializer()), emptyList())
-    private val menuRepo  = JsonStore(application, "menu.json", MenuConfig.serializer(), MenuConfig.Standard.menu, pretty = true)
-    private val printer   = Printer(application)
+    private val desk = OrderDesk.get(application)
 
-    private val prefs     = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val service = desk.service
 
-    private val _state = MutableStateFlow(AppState(
-        printStyle = PrintStyle.entries.find { it.name == prefs.getString("printStyle", null) } ?: PrintStyle.Receipt,
-    ))
-    val state: StateFlow<AppState> = _state.asStateFlow()
+    val state: StateFlow<AppState> = service.state
+
+    /** Switch, port and join code of the guest server, plus where it stands right now. */
+    val guest: StateFlow<GuestRuntime> = desk.guest.runtime
+
+    // The confirmation belongs to the caller, not to the shared state: with guest orders arriving over HTTP,
+    // a single slot would let one guest's slip replace another's.
+    private val _confirmation = MutableStateFlow<Confirmation?>(null)
+    val confirmation: StateFlow<Confirmation?> = _confirmation.asStateFlow()
 
     init {
         viewModelScope.launch {
-            val orders = orderRepo.load()
-            val menu = menuRepo.load()
-            _state.update { it.copy(orders = orders, menu = menu) }
-        }
-    }
-
-    private fun updateMenu(transform: (MenuConfig) -> MenuConfig) {
-        val next = transform(_state.value.menu)
-        if (next != _state.value.menu) {
-            _state.update { it.copy(menu = next) }
-            viewModelScope.launch { menuRepo.save(next) }
-        }
-    }
-
-    private fun setPrint(id: Long, status: PrintStatus?) =
-        _state.update { it.copy(prints = if (status == null) it.prints - id else it.prints + (id to status)) }
-
-    // Fresh random QR link on every print, reprint and test print.
-    private fun printout(order: Order) = _state.value.let { s ->
-        s.printStyle.format(order, s.menu.funLinks.randomOrNull())
-    }
-
-    private fun markPrinted(id: Long) {
-        // Reprints of printed orders and the test print have nothing to record.
-        if (_state.value.orders.none { it.id == id && !it.printed }) return
-        _state.update { s -> s.copy(orders = s.orders.map { if (it.id == id) it.copy(printed = true) else it }) }
-        viewModelScope.launch { orderRepo.save(_state.value.orders) }
-    }
-
-    private fun runPrint(markup: String, id: Long) = viewModelScope.launch {
-        setPrint(id, PrintStatus.Printing)
-        printer.print(markup)
-            .onSuccess {
-                markPrinted(id)
-                setPrint(id, PrintStatus.Printed)
-                // "Gedruckt" is a brief tick on the button, not a lasting state; failures stay until retried.
-                delay(3_000)
-                if (_state.value.prints[id] == PrintStatus.Printed) setPrint(id, null)
+            desk.ensureLoaded()
+            // On by the admin's choice before the app was closed: without this the switch would read "an"
+            // while nothing listens. The service is asked for from the foreground, which is where Android
+            // allows a dataSync start.
+            if (desk.guestSettings.enabled) {
+                // A start can be refused outright (missing notification permission, a dataSync budget the
+                // system already spent). That must not take the app down with it on launch: the panel then
+                // shows "Aus" with the reason, and the admin can switch it on again.
+                runCatching { GuestService.setEnabled(getApplication(), true) }
+                    .onFailure { desk.guest.markStartRefused(it) }
             }
-            .onFailure { e -> setPrint(id, PrintStatus.Failed(e.message ?: "Unbekannter Fehler")) }
+        }
     }
 
     // ─── Admin lock ─────────────────────────────────────────────────────────
@@ -109,62 +57,68 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // ─── Ausdruck ───────────────────────────────────────────────────────────
 
-    fun setPrintStyle(style: PrintStyle) {
-        _state.update { it.copy(printStyle = style) }
-        prefs.edit { putString("printStyle", style.name) }
-    }
+    fun setPrintStyle(style: PrintStyle) = desk.setPrintStyle(style)
 
-    fun testPrint() = runPrint(
-        printout((_state.value.menu.presets.firstOrNull() ?: Pizza("Margherita", MenuConfig.Standard.sauce, linkedSetOf())).let { pizza ->
-            Order(number = 42, customer = "Testgast", pizza = pizza, note = "Nur ein Testdruck", diet = _state.value.menu.dietOf(pizza), allergens = _state.value.menu.allergensOf(pizza))
-        }),
-        TEST_PRINT_ID,
-    )
+    fun testPrint() = service.testPrint()
+
+    /** The table card a guest scans; no order behind it, so it reports its own print state. */
+    fun printGuestCard(url: String) = service.printGuestCard(url)
 
     // ─── Orders ─────────────────────────────────────────────────────────────
 
-    fun submitOrder(customer: String, pizza: Pizza, note: String) {
-        val cleanCustomer = customer.trim()
-        // The order button only enables with a name and dough left; this guards a stale screen, it has nothing to say.
-        if (cleanCustomer.isEmpty()) return
-        val menuAfter = _state.value.menu.takeDough() ?: return
-        updateMenu { menuAfter }
-
-        val number = _state.value.nextNumber
-        val order = Order(number = number, customer = cleanCustomer, pizza = pizza, note = note.trim(), diet = _state.value.menu.dietOf(pizza), allergens = _state.value.menu.allergensOf(pizza), printed = false)
-
-        val markup = printout(order)
-        _state.update { it.copy(
-            orders = listOf(order) + it.orders,
-            confirmation = Confirmation(order, markup),
-        ) }
-
-        viewModelScope.launch { orderRepo.save(_state.value.orders) }
-        runPrint(markup, order.id)
+    /**
+     * @param onResult runs on the main thread with what the desk decided: a refusal leaves the guest's input
+     *   in place, so the form is only cleared once [Placed] came back.
+     */
+    fun submitOrder(customer: String, pizza: Pizza, note: String, onResult: (SubmitResult) -> Unit) {
+        viewModelScope.launch {
+            val result = service.submit(customer, pizza, note)
+            if (result is Placed) _confirmation.value = Confirmation(result.order, result.printout)
+            onResult(result)
+        }
     }
 
-    fun dismissConfirmation() = _state.update { it.copy(confirmation = null) }
+    fun dismissConfirmation() {
+        _confirmation.value = null
+    }
 
-    fun reprint(order: Order) = runPrint(printout(order), order.id)
+    fun reprint(order: Order) = service.reprint(order)
 
-    fun toggleDone(order: Order) {
-        _state.update { s ->
-            s.copy(orders = s.orders.map {
-                if (it.id == order.id) it.copy(completedAt = if (it.isDone()) null else System.currentTimeMillis())
-                else it
-            })
-        }
-        viewModelScope.launch { orderRepo.save(_state.value.orders) }
+    /** One tap on the list: the next step (Wartet → Im Ofen → Fertig), and one step back. */
+    fun advanceOrder(order: Order) {
+        viewModelScope.launch { service.advance(order) }
     }
 
     fun clearAll() {
-        // Clearing starts a new evening, so the dough count and what ran out start over too.
-        updateMenu { it.withDoughToday(it.dough?.today).copy(soldOut = emptySet()) }
-        _state.update { it.copy(orders = emptyList(), prints = emptyMap()) }
-        viewModelScope.launch { orderRepo.save(emptyList()) }
+        viewModelScope.launch { service.clearAll() }
+    }
+
+    // ─── Gäste-Bestellung ───────────────────────────────────────────────────
+
+    /** Switches the server on or off; the foreground service is what keeps it alive in the background. */
+    fun setGuestEnabled(enabled: Boolean) = GuestService.setEnabled(getApplication(), enabled)
+
+    /**
+     * A different port restarts the server in place; the page in a guest's browser just polls on.
+     *
+     * A port that can't be bound leaves nothing behind: the foreground service goes too, or it would keep a
+     * notification for a server that isn't there. The reason stays on the panel.
+     */
+    fun setGuestPort(port: Int) = viewModelScope.launch {
+        if (!desk.startGuest(port)) GuestService.stop(getApplication())
+    }
+
+    /** Invalidates every QR code handed out so far. */
+    fun newGuestCode() {
+        desk.guestSettings.rotateCode()
+        desk.guest.refreshCode()
     }
 
     // ─── Menu ───────────────────────────────────────────────────────────────
+
+    private fun updateMenu(transform: (MenuConfig) -> MenuConfig) {
+        viewModelScope.launch { service.updateMenu(transform) }
+    }
 
     fun addSauce(name: String) = name.trim().takeIf { it.isNotEmpty() }?.let { clean ->
         updateMenu { it.withSauce(Sauce(clean)) }
@@ -208,12 +162,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun adjustDough(delta: Int) = updateMenu { it.adjustDough(delta) }
 
+    fun setMaxOpenOrders(count: Int?) = updateMenu { it.withMaxOpenOrders(count) }
+
     fun exportMenu(uri: Uri) = viewModelScope.launch {
-        val menu = _state.value.menu
+        val menu = state.value.menu
         val written = withContext(Dispatchers.IO) {
             runCatching { resolver.openOutputStream(uri, "wt")!!.use { it.write(MenuFile.encode(menu).toByteArray()) } }
         }
-        _state.update { it.copy(menuFileMessage = if (written.isSuccess) "Menü gespeichert." else "Speichern fehlgeschlagen.") }
+        service.setMenuFileMessage(if (written.isSuccess) "Menü gespeichert." else "Speichern fehlgeschlagen.")
     }
 
     fun importMenu(uri: Uri) = viewModelScope.launch {
@@ -221,18 +177,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             runCatching { MenuFile.decode(resolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }) }
         }
         // The dough count isn't in the file: keep it, mid-party it's still what's in the fridge.
-        loaded.onSuccess { imported -> updateMenu { imported.copy(dough = it.dough) } }
-        _state.update { it.copy(menuFileMessage = if (loaded.isSuccess) "Menü geladen." else "Keine gültige Menü-Datei, das Menü bleibt unverändert.") }
+        loaded.onSuccess { imported -> service.updateMenu { imported.copy(dough = it.dough) } }
+        service.setMenuFileMessage(if (loaded.isSuccess) "Menü geladen." else "Keine gültige Menü-Datei, das Menü bleibt unverändert.")
     }
 
     private val resolver get() = getApplication<Application>().contentResolver
 
     /** Back to a fresh install: no orders, the standard menu without a dough count, the default print style. */
     fun resetAll() {
-        _state.update { it.copy(orders = emptyList(), prints = emptyMap()) }
-        viewModelScope.launch { orderRepo.save(emptyList()) }
-        updateMenu { MenuConfig.Standard.menu }
-        setPrintStyle(PrintStyle.Receipt)
+        desk.setPrintStyle(PrintStyle.Receipt)
+        viewModelScope.launch { service.resetAll() }
     }
 }
 

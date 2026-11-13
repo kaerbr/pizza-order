@@ -28,15 +28,19 @@ class JsonStore<T>(
     private val serializer: KSerializer<T>,
     private val defaultValue: T,
     private val pretty: Boolean = false
-) {
+) : JsonFile<T> {
     private val file = AtomicFile(File(context.filesDir, fileName))
     private val mutex = Mutex()
     private val json = Json {
         ignoreUnknownKeys = true
+        // Every field, defaults included: [Order.id] defaults to System.currentTimeMillis(), and a default
+        // that is re-evaluated would be dropped from the file and replaced at load time — two orders loaded
+        // in the same millisecond would then share an id, and one "Weiter" tap would advance both.
+        encodeDefaults = true
         prettyPrint = pretty
     }
 
-    suspend fun load(): T = withContext(Dispatchers.IO) {
+    override suspend fun load(): T = withContext(Dispatchers.IO) {
         val text = try {
             file.readFully().decodeToString()
         } catch (_: FileNotFoundException) {
@@ -51,7 +55,7 @@ class JsonStore<T>(
             }
     }
 
-    suspend fun save(data: T) = mutex.withLock {
+    override suspend fun save(data: T): Unit = mutex.withLock {
         withContext(Dispatchers.IO) {
             // A full disk mustn't take the app down mid-party: the state stays in memory and the next save tries again.
             try {

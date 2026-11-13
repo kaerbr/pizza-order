@@ -5,8 +5,16 @@ Bestell-App für Pizza-Abende: Gäste bestellen am Tablet, die Küche arbeitet d
 ## Bestellen
 
 **Gast**:
-Die Person, die am Tablet eine Pizza bestellt; erscheint mit Namen auf dem Ausdruck.
+Die Person, die eine Pizza bestellt — am Tablet oder vom eigenen Handy; erscheint mit Namen auf dem Ausdruck.
 _Avoid_: Kunde, Benutzer
+
+**Gast-Bestellung**:
+Eine Bestellung, die ein Gast vom eigenen Handy über die Gastseite aufgegeben hat, im Gegensatz zu einer am Tablet aufgenommenen. Sie trägt das Geräte-Token des Handys; nur damit erscheint sie auf dessen Statusseite.
+_Avoid_: Online-Bestellung, Handy-Bestellung
+
+**Geräte-Token**:
+Der Schlüssel, den ein Handy beim ersten Bestellen bekommt und im Browser speichert (32 Hex-Zeichen, zufällig). Er entscheidet, welche Bestellungen die Statusseite zeigt: die eigenen. Er ist kein Zugangscode — ohne ihn bestellt man genauso, sieht danach nur keine fremde Pizza. Blockiert der Browser den Speicher (privater Modus, gesperrte Website-Daten), gilt das Token nur für die Sitzung: die Bestellung geht trotzdem durch, nach einem Neuladen ist die eigene Pizza aber nicht mehr zugeordnet.
+_Avoid_: Session, Login, Gast-ID
 
 **Bestellung**:
 Eine Pizza für einen Gast, mit fortlaufender Nummer, Uhrzeit und optionaler Notiz für die Küche.
@@ -28,6 +36,10 @@ _Avoid_: Speisekarte, Konfiguration
 Eine Zutat, die für heute ausgegangen ist: Sie bleibt im Menü, aber Gäste können sie und vordefinierte Pizzen damit nicht wählen. „Alle Bestellungen löschen“ hebt das auf.
 _Avoid_: Ausverkauft (das sagt der Teig-Bestand)
 
+**Offene Bestellungen**:
+Die Bestellungen, die noch nicht fertig sind. Das Limit dafür steht im Admin-Panel unter „Annahme“: Ist es erreicht, lehnt die App weitere Bestellungen mit einer Meldung ab, statt sie anzunehmen. Ohne Eintrag gibt es kein Limit; der Teig-Bestand bleibt die harte Grenze.
+_Avoid_: Warteschlange (die ist die Reihenfolge, nicht die Grenze)
+
 **Allergen**:
 Ein Stoff, den eine Zutat enthält und auf den Gäste reagieren können (derzeit Laktose, Nüsse, Gluten und Soja). Wird je Zutat im Admin-Panel gepflegt; eine Pizza enthält alle Allergene ihrer Zutaten.
 _Avoid_: Unverträglichkeit, Allergie
@@ -38,12 +50,16 @@ Das mitgelieferte Menü, das nach „Alles zurücksetzen“ im Admin-Panel wiede
 ## Küche
 
 **Bestellliste**:
-Die Übersicht aller Bestellungen, getrennt nach offen und fertig (Tab „Bestellungen“).
-_Avoid_: Warteschlange, Queue
+Die Übersicht aller Bestellungen, nach Status gruppiert (Tab „Bestellungen“).
+_Avoid_: Queue
 
-**Offen / Fertig**:
-Der Zustand einer Bestellung: offen, bis die Küche sie als fertig markiert.
-_Avoid_: Pending, erledigt
+**Warteschlange**:
+Die offenen Bestellungen in der Reihenfolge ihres Eingangs, also alles außer „Fertig“. Daraus ergibt sich die Position der Gäste („noch 2 vor dir“); die Zahl wird abgeleitet und nie gespeichert. Auf der Gastseite ist die Warteschlange **nur diese Zahl** — wie viele Pizzen noch vor der eigenen kommen und wie viele offen sind, nie eine Liste.
+_Avoid_: Queue
+
+**Wartet / Im Ofen / Fertig**:
+Der Zustand einer Bestellung, abgeleitet aus den Zeitstempeln, die die Küche mit einem Tippen setzt.
+_Avoid_: Offen, Pending, erledigt
 
 ## Drucken
 
@@ -56,8 +72,16 @@ Das Aussehen aller Ausdrucke, „Beleg“ oder „Beleg Design“; gilt für all
 _Avoid_: Druckstil, Vorlage
 
 **QR-Link**:
-Eine URL, die als QR-Code auf den Ausdruck gedruckt wird; die Bezeichnung dazu ist nur im Admin-Panel sichtbar.
+Eine URL, die als QR-Code auf den Küchenbon gedruckt wird; die Bezeichnung dazu ist nur im Admin-Panel sichtbar. Im Panel heißt der Tab deshalb „QR-Links zum Bon“.
 _Avoid_: Fun-Link
+
+**Gäste-QR-Code**:
+Der QR-Code, der die Gastseite im lokalen Netz öffnet. Steht im Schnellmenü unter „QR-Code für Gäste“ und im Gäste-Abschnitt des Admin-Panels; er ist kein QR-Link und landet nicht auf dem Küchenbon.
+_Avoid_: Bestell-QR, Gast-Link, QR-Links
+
+**QR-Bon**:
+Der gedruckte Bon für den Tisch: derselbe Gäste-QR-Code, dazu Adresse und Code in Schrift, für Handys, deren Kamera nicht will. Damit kann das Tablet in der Küche bleiben.
+_Avoid_: Tischkarte, Flyer, QR-Karte
 
 ## Verwaltung
 

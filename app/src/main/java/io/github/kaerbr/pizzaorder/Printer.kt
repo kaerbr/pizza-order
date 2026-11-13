@@ -26,7 +26,7 @@ import java.nio.charset.Charset
  * settings. selectFirstPaired() then picks it: the first paired printer it can
  * reach. Other paired devices don't count — fine for the single-printer party setup.
  */
-class Printer(private val context: Context) {
+class Printer(private val context: Context) : PrinterPort {
 
     // One printout at a time: an order plus a quick reprint would otherwise open two
     // Bluetooth connections at once and one of them fails.
@@ -36,7 +36,7 @@ class Printer(private val context: Context) {
      * @return Result.success on print, Result.failure with a user-facing German
      *         message on any failure (no permission, no printer, BT off, etc.).
      */
-    suspend fun print(markup: String): Result<Unit> = mutex.withLock { withContext(Dispatchers.IO) {
+    override suspend fun print(markup: String): Result<Unit> = mutex.withLock { withContext(Dispatchers.IO) {
         runCatching<Unit> {
             check(hasBluetoothPermission()) {
                 "Bluetooth-Berechtigung fehlt. In den App-Einstellungen erlauben."
@@ -75,6 +75,10 @@ class Printer(private val context: Context) {
 }
 
 private const val CHARSET = "windows-1252"
+
+/** The printer's codepage. Also used by the HTTP layer, which needs its own encoder (see [printableOnly]). */
+internal const val PRINT_CHARSET = CHARSET
+
 private val printerCharset = Charset.forName(CHARSET).newEncoder()
 
 /**
@@ -82,3 +86,10 @@ private val printerCharset = Charset.forName(CHARSET).newEncoder()
  * Android has no flag to hide the emoji key, so guest fields filter instead. Main thread only: the encoder isn't thread-safe.
  */
 internal fun String.printableOnly() = filter(printerCharset::canEncode)
+
+/**
+ * [printableOnly] for an HTTP thread: its own encoder, because the shared one above is not thread-safe.
+ * Same filter, same result.
+ */
+internal fun String.printableOnlyOffMainThread(): String =
+    filter(Charset.forName(PRINT_CHARSET).newEncoder()::canEncode)

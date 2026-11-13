@@ -82,6 +82,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.dantsu.escposThermalprinter)
+    implementation(libs.nanohttpd)
+    // QR code for the guest URL: ~200 KB, and the app already draws QR codes on the printout via DantSu.
+    implementation(libs.zxing.core)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.material.icons.extended)
