@@ -1,3 +1,21 @@
+# [1.10.0](https://github.com/kaerbr/[secure]/compare/v1.9.1...v1.10.0) (2026-11-13)
+
+
+### Bug Fixes
+
+* the guest page holds up on a weak wifi and a locked-down browser ([c35813e](https://github.com/kaerbr/[secure]/commit/c35813e3beff7b7553abf7d0e4f80da0cd488c78))
+* the guest service outlives its timeout, the card names the real expiry ([4c66c50](https://github.com/kaerbr/[secure]/commit/4c66c50a228bf84a078da2660a6d930938656db6))
+
+
+### Features
+
+* a guest phone sees only its own pizza ([f6d11f7](https://github.com/kaerbr/[secure]/commit/f6d11f701336bf3ad1678eb5aa86f656746c750a))
+* guest page for ordering over WiFi ([f27c4b9](https://github.com/kaerbr/[secure]/commit/f27c4b9afd5bf8c4f99db18bcdd3d5e33c3c016e))
+* guest QR code in the quick menu and as a table card ([9c327b3](https://github.com/kaerbr/[secure]/commit/9c327b3dd32b5ca8eb2cd79d84b10b33365fb07d))
+* guests order over the local network ([7c8e103](https://github.com/kaerbr/[secure]/commit/7c8e10342ed287c540ef610c938515e9c7a28f4b))
+* limit open orders ([a62797e](https://github.com/kaerbr/[secure]/commit/a62797e57d16afc5e4e7865a3cebf7786824170c))
+* order status and queue ([d7e76cf](https://github.com/kaerbr/[secure]/commit/d7e76cf977e6565831690d087699b8e14db37c09))
+
 ## [1.9.1](https://github.com/kaerbr/[secure]/compare/v1.9.0...v1.9.1) (2026-11-05)
 
 
