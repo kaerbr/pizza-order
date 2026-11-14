@@ -41,11 +41,13 @@ class OrderServiceTest {
     private fun pizza(name: String = "Margherita") =
         MenuConfig.Standard.menu.presets.first { it.name == name }
 
-    private fun orders(): List<Order> = Json { ignoreUnknownKeys = true }
-        .decodeFromString(ListSerializer(Order.serializer()), ordersFile.readText())
+    /** One format for every read of the files; building a new one per call is slow, and some tests poll. */
+    private val json = Json { ignoreUnknownKeys = true }
 
-    private fun menu(): MenuConfig = Json { ignoreUnknownKeys = true }
-        .decodeFromString(MenuConfig.serializer(), menuFile.readText())
+    private fun orders(): List<Order> =
+        json.decodeFromString(ListSerializer(Order.serializer()), ordersFile.readText())
+
+    private fun menu(): MenuConfig = json.decodeFromString(MenuConfig.serializer(), menuFile.readText())
 
     /** The success case, for tests that aren't about a refusal. */
     private fun SubmitResult.placed(): Placed = assertTrue(this is Placed).let { this as Placed }
