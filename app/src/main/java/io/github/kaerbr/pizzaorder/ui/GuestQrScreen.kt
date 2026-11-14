@@ -23,6 +23,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.kaerbr.pizzaorder.GuestRuntime
 import io.github.kaerbr.pizzaorder.GuestStatus
+import io.github.kaerbr.pizzaorder.GuestWifi
 import io.github.kaerbr.pizzaorder.HotspotRuntime
 import io.github.kaerbr.pizzaorder.HotspotStatus
 import io.github.kaerbr.pizzaorder.LocalAddress
@@ -45,6 +50,9 @@ import io.github.kaerbr.pizzaorder.PrintStatus
  *
  * @param hotspot the tablet's own WLAN. While it runs the screen shows two codes — WLAN first, order page
  *   last, "mobile Daten aus" between them — because a guest can't know a network Android made up a minute ago.
+ *
+ * A tap on a code shows it as large as the screen allows; a tap anywhere puts it away again.
+ *
  * @param printStatus the state of the card print, so the button reports its own outcome like every other
  *   print button in the app.
  */
@@ -62,6 +70,19 @@ fun GuestQrScreen(
     // The same rules as the panel: a code without a listening server or without an address would point at
     // nobody, and that is worse than a sentence saying why.
     val url = ip?.takeIf { guest.status is GuestStatus.Running }?.let { LocalAddress.url(it, guest.port, guest.code) }
+
+    // Which code is shown large, if any. Only the choice is kept, not the content: a hotspot that restarts
+    // while the large view is open changes the code underneath, and the large one has to follow.
+    var zoomed by rememberSaveable { mutableStateOf<GuestCode?>(null) }
+    when (zoomed) {
+        GuestCode.Wifi -> wifi?.let {
+            GuestQrZoom(WIFI_STEP_TITLE, GuestWifi.qr(it), wifiCodeDescription(it)) { zoomed = null }
+        }
+        GuestCode.Order -> url?.let {
+            GuestQrZoom(if (wifi != null) ORDER_STEP_TITLE else "Pizza bestellen", it, "QR-Code für $it") { zoomed = null }
+        }
+        null -> Unit
+    }
 
     Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         // No scrolling: this is the screen a guest holds a phone up to, and a code half below the fold is a
@@ -95,13 +116,20 @@ fun GuestQrScreen(
                             ?: "Kein WLAN und kein Hotspot. Das Tablet hängt an keinem Netz, also kann kein Handy bestellen.",
                         error = true,
                     )
-                    url != null && wifi != null -> GuestWifiSteps(wifi, url, maxQr = 340.dp, modifier = Modifier.fillMaxSize())
+                    url != null && wifi != null -> GuestWifiSteps(
+                        wifi,
+                        url,
+                        maxQr = 340.dp,
+                        modifier = Modifier.fillMaxSize(),
+                        onZoom = { zoomed = it },
+                    )
                     url != null -> BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         // Black on white whatever the theme: a dark-mode code in the palette's brown doesn't scan.
                         GuestQrCode(
                             url,
                             Modifier
                                 .size(minOf(360.dp, maxWidth, maxHeight))
+                                .zoomOnTap { zoomed = GuestCode.Order }
                                 .background(Color.White, RoundedCornerShape(16.dp))
                                 .padding(12.dp),
                         )
@@ -122,8 +150,11 @@ fun GuestQrScreen(
                     is PrintStatus.Failed -> Note(printStatus.reason, error = true)
                     PrintStatus.Printed -> Note("Der Bon liegt im Drucker. Auf den Tisch legen, dann findet ihn jedes Handy.")
                     else -> Note(
-                        if (wifi != null) HOTSPOT_PHONE_HINT
-                        else "Handy draufhalten. Bleibt das Tablet in der Küche: den QR-Bon drucken und auf den Tisch legen.",
+                        "Code antippen: groß anzeigen. " + if (wifi != null) {
+                            HOTSPOT_PHONE_HINT
+                        } else {
+                            "Bleibt das Tablet in der Küche: den QR-Bon drucken und auf den Tisch legen."
+                        },
                     )
                 }
             }

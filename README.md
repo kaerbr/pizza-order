@@ -72,7 +72,7 @@ Die meisten günstigen Bluetooth-Bondrucker sprechen ESC/POS und sollten funktio
 
 ## 📱 Gäste bestellen vom Handy
 
-Der Gäste-Server ist standardmäßig **aus**. Im Admin-Panel unter „Gäste-Bestellung“ einschalten, Port setzen und den angezeigten Code auf dem Tablet lassen. Den QR-Code scannen Gäste mit der Handykamera; die Seite öffnet sich im Browser, ohne App und ohne Internet. Neben dem Code steht dieselbe Adresse als Text mit **„Kopieren“** — für Handys, deren Kamera nicht will, und für den Weg über einen Messenger.
+Der Gäste-Server ist standardmäßig **aus**. Im Admin-Panel unter „Gäste-Bestellung“ einschalten, Port setzen und den angezeigten Code auf dem Tablet lassen. Den QR-Code scannen Gäste mit der Handykamera; die Seite öffnet sich im Browser, ohne App und ohne Internet. Neben dem Code steht dieselbe Adresse als Text mit **„Kopieren“** — für Handys, deren Kamera nicht will, und für den Weg über einen Messenger. Ein Tipp auf einen Code zeigt ihn so groß, wie der Bildschirm es hergibt; ein weiterer Tipp irgendwohin schließt die Großansicht wieder.
 
 Voraussetzung: Handy und Tablet im **selben WLAN**. Viele Gäste-WLANs trennen Geräte voneinander (Client Isolation); dann funktioniert es nicht, und der **eigene Hotspot** ist der Weg daran vorbei — genauso, wenn es gar kein WLAN gibt.
 

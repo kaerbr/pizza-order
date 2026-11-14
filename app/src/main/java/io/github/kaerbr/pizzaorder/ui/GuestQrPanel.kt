@@ -8,11 +8,15 @@ import android.net.Network
 import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,6 +48,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.github.kaerbr.pizzaorder.GuestQr
 import io.github.kaerbr.pizzaorder.GuestWifi
 import io.github.kaerbr.pizzaorder.WifiAccess
@@ -172,9 +178,16 @@ internal fun GuestQrCode(url: String, modifier: Modifier = Modifier, description
  * place a guest with a stubborn camera can read them.
  *
  * @param maxQr the largest a code gets; it shrinks to fit the width and, where the height is limited, that.
+ * @param onZoom called with the code that was tapped; null leaves the codes untappable (the admin panel).
  */
 @Composable
-internal fun GuestWifiSteps(wifi: WifiAccess, url: String, maxQr: Dp, modifier: Modifier = Modifier) {
+internal fun GuestWifiSteps(
+    wifi: WifiAccess,
+    url: String,
+    maxQr: Dp,
+    modifier: Modifier = Modifier,
+    onZoom: ((GuestCode) -> Unit)? = null,
+) {
     BoxWithConstraints(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         // The codes take what the place leaves them: on the guest screen that is the height between the title
         // and the buttons, so nothing has to scroll; in the admin panel, which scrolls anyway, only the width.
@@ -185,9 +198,9 @@ internal fun GuestWifiSteps(wifi: WifiAccess, url: String, maxQr: Dp, modifier: 
         if (beside >= stacked) {
             val qr = beside.coerceAtLeast(MinQr)
             Row(horizontalArrangement = Arrangement.spacedBy(StepGap), verticalAlignment = Alignment.Top) {
-                WifiStep(wifi, qr)
+                WifiStep(wifi, qr, onZoom)
                 DataStep(Modifier.width(DataStepWidth))
-                OrderStep(url, qr)
+                OrderStep(url, qr, onZoom)
             }
         } else {
             val qr = stacked.coerceAtLeast(MinQr)
@@ -195,9 +208,9 @@ internal fun GuestWifiSteps(wifi: WifiAccess, url: String, maxQr: Dp, modifier: 
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(StepGap),
             ) {
-                WifiStep(wifi, qr)
+                WifiStep(wifi, qr, onZoom)
                 DataStep(Modifier.fillMaxWidth())
-                OrderStep(url, qr)
+                OrderStep(url, qr, onZoom)
             }
         }
     }
@@ -238,12 +251,13 @@ private fun DataStep(modifier: Modifier) {
 }
 
 @Composable
-private fun WifiStep(wifi: WifiAccess, qrSize: Dp) {
+private fun WifiStep(wifi: WifiAccess, qrSize: Dp, onZoom: ((GuestCode) -> Unit)?) {
     GuestStep(
-        title = "1. Ins WLAN",
+        title = WIFI_STEP_TITLE,
         content = GuestWifi.qr(wifi),
-        description = "QR-Code für das WLAN ${wifi.ssid}",
+        description = wifiCodeDescription(wifi),
         qrSize = qrSize,
+        onZoom = onZoom?.let { zoom -> { zoom(GuestCode.Wifi) } },
     ) {
         Text(wifi.ssid, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
         wifi.password?.takeIf { it.isNotEmpty() }?.let { password ->
@@ -258,8 +272,14 @@ private fun WifiStep(wifi: WifiAccess, qrSize: Dp) {
 }
 
 @Composable
-private fun OrderStep(url: String, qrSize: Dp) {
-    GuestStep(title = "3. Pizza bestellen", content = url, description = "QR-Code für $url", qrSize = qrSize) {
+private fun OrderStep(url: String, qrSize: Dp, onZoom: ((GuestCode) -> Unit)?) {
+    GuestStep(
+        title = ORDER_STEP_TITLE,
+        content = url,
+        description = "QR-Code für $url",
+        qrSize = qrSize,
+        onZoom = onZoom?.let { zoom -> { zoom(GuestCode.Order) } },
+    ) {
         Text(
             "Erst nach Schritt 1 und 2 scannen.",
             style = MaterialTheme.typography.bodyMedium,
@@ -275,6 +295,7 @@ private fun GuestStep(
     content: String,
     description: String,
     qrSize: Dp,
+    onZoom: (() -> Unit)?,
     below: @Composable () -> Unit,
 ) {
     Column(
@@ -285,7 +306,7 @@ private fun GuestStep(
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         GuestQrCode(
             content,
-            Modifier.size(qrSize).background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp),
+            Modifier.size(qrSize).zoomOnTap(onZoom).background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp),
             description,
         )
         below()
@@ -296,3 +317,58 @@ private fun GuestStep(
 internal const val HOTSPOT_PHONE_HINT =
     "Nach dem Bestellen können die mobilen Daten wieder an. Meldet das Handy „kein Internet“, stimmt das: " +
         "der Hotspot hat absichtlich keins."
+
+// ─── Großansicht ────────────────────────────────────────────────────────────
+
+/** Which of the guest screen's codes is meant; the content is looked up when drawn, so it is never stale. */
+internal enum class GuestCode { Wifi, Order }
+
+internal const val WIFI_STEP_TITLE = "1. Ins WLAN"
+internal const val ORDER_STEP_TITLE = "3. Pizza bestellen"
+
+internal fun wifiCodeDescription(wifi: WifiAccess) = "QR-Code für das WLAN ${wifi.ssid}"
+
+/** Makes a code tappable where there is something to open; without [onZoom] the code stays plain. */
+internal fun Modifier.zoomOnTap(onZoom: (() -> Unit)?): Modifier =
+    if (onZoom == null) this else clickable(onClickLabel = "QR-Code groß anzeigen", onClick = onZoom)
+
+/**
+ * One code as large as the screen allows, over the dimmed guest screen.
+ *
+ * For the phone that won't focus on a small code and the guest who stands a step away. A tap anywhere —
+ * beside the code or on it — or the back button closes it again; there is nothing else to do here, so there
+ * is no button to look for.
+ *
+ * @param content what the code carries; [description] is what a screen reader says instead of it.
+ */
+@Composable
+internal fun GuestQrZoom(title: String, content: String, description: String, onClose: () -> Unit) {
+    // The platform's default width would cap the dialog at a card's size, which is the opposite of the point.
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        BoxWithConstraints(
+            Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    // No ripple across the whole screen for what is simply "put it away".
+                    indication = null,
+                    onClickLabel = "Schließen",
+                    onClick = onClose,
+                )
+                .padding(16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            val side = minOf(maxWidth, maxHeight - ZoomTitleHeight)
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // White on the dialog's scrim, like the code's own background: readable in both themes.
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Box(Modifier.size(side).background(Color.White, RoundedCornerShape(16.dp)).padding(12.dp)) {
+                    GuestQrCode(content, Modifier.fillMaxSize(), description)
+                }
+            }
+        }
+    }
+}
+
+/** Room for the title above a zoomed code, spacing included. */
+private val ZoomTitleHeight = 44.dp
