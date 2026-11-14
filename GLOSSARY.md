@@ -84,7 +84,7 @@ Das WLAN ohne Internet, das die App auf dem Tablet selbst aufspannt, solange der
 _Avoid_: Tethering, App-WLAN, Party-WLAN
 
 **WLAN-QR-Code**:
-Der QR-Code, mit dem ein Handy dem eigenen Hotspot beitritt. Kommt immer vor dem Gäste-QR-Code: erst ins WLAN, dann zur Gastseite.
+Der QR-Code, mit dem ein Handy dem eigenen Hotspot beitritt. Kommt immer vor dem Gäste-QR-Code: erst ins WLAN, dann mobile Daten aus, dann zur Gastseite.
 _Avoid_: Hotspot-Code, WLAN-Code
 
 **QR-Bon**:

@@ -90,7 +90,7 @@ class GuestCardTest {
     private val wifi = WifiAccess("AndroidShare_1234", "k3pt5ecret")
 
     @Test
-    fun withTheHotspotTheCardCarriesTheWlanCodeFirstAndTheOrderCodeSecond() {
+    fun withTheHotspotTheCardCarriesTheWlanCodeFirstAndTheOrderCodeLast() {
         // The order matters: a phone that scans the order code before it is in the WLAN gets an error page.
         val codes = lines(GuestCard.format(url, wifi)).flatMap { it.segments }.filterIsInstance<QrSegment>()
 
@@ -106,8 +106,11 @@ class GuestCardTest {
         assertTrue(text, "k3pt5ecret" in text)
         // Still everything the plain card has.
         assertTrue(text, "192.168.43.1" in text && "abc123" in text)
-        // And the one thing that trips guests: the phone complains about a WLAN without internet.
-        assertTrue(text, "Internet" in text)
+        // And the step without a code, the one that trips guests: with mobile data on, the phone looks for
+        // the page in the mobile network. It has to stand between the two codes, not after them.
+        assertTrue(text, "Mobile Daten aus" in text)
+        assertTrue(text, text.indexOf("1. Ins WLAN") < text.indexOf("2. Mobile Daten aus"))
+        assertTrue(text, text.indexOf("2. Mobile Daten aus") < text.indexOf("3. Pizza bestellen"))
     }
 
     @Test

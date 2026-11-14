@@ -32,7 +32,7 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 - 📋 **Bestellliste** mit „Wartet“, „Im Ofen“ und „Fertig“, Wartezeit und Nachdrucken; was nicht gedruckt wurde, meldet das Schnellmenü rot, auch nach einem Neustart
 - 🎨 **Zwei Ausdruck-Designs**: schlichter Kassenbon oder mit Verzierung
 - 📱 **Gäste bestellen wahlweise vom eigenen Handy**: QR-Code am Tablet, das Handy öffnet die Bestellseite im WLAN — ohne App, ohne Internet. Jedes Handy sieht nur die eigene Bestellung und die Warteschlange als Zahl. Der Gäste-Server dafür ist standardmäßig aus und wird im Admin-Panel eingeschaltet; ohne ihn bestellen Gäste wie gewohnt am Tablet. Siehe [Gäste bestellen vom Handy](#-gäste-bestellen-vom-handy)
-- 📡 **Eigener Hotspot**: gibt es kein brauchbares WLAN, spannt das Tablet selbst eins auf — ohne Router, ohne Internet. Gäste scannen erst den WLAN-QR-Code, dann den Gäste-QR-Code. Siehe [Ohne WLAN: der eigene Hotspot](#-ohne-wlan-der-eigene-hotspot)
+- 📡 **Eigener Hotspot**: gibt es kein brauchbares WLAN, spannt das Tablet selbst eins auf — ohne Router, ohne Internet. Gäste scannen den WLAN-QR-Code, schalten die mobilen Daten aus und scannen dann den Gäste-QR-Code. Siehe [Ohne WLAN: der eigene Hotspot](#-ohne-wlan-der-eigene-hotspot)
 - 🪧 **QR-Bon für den Tisch**: derselbe Code gedruckt, damit das Tablet in der Küche bleiben kann; mit eigenem Hotspot stehen beide Codes darauf
 - 📱 **QR-Codes** auf dem Ausdruck, z. B. zu einem Pizza-Witz
 - 🌗 **Aussehen**: Hell oder Dunkel und mehrere Farbpaletten, wählbar im Schnellmenü
@@ -95,15 +95,16 @@ Das Tablet sieht weiterhin alles: jede Gast-Bestellung landet in der normalen Be
 
 Im Admin-Panel unter „Gäste-Bestellung“ **„Eigenen Hotspot einschalten“**. Solange der Gäste-Server läuft, spannt das Tablet dann ein eigenes WLAN ohne Internet auf; ein Router oder ein fremdes Netz ist nicht nötig. Android fragt dafür einmalig nach **„Geräte in der Nähe“** (bis Android 12 nach dem genauen Standort, der dann auch eingeschaltet sein muss).
 
-Für die Gäste sind es zwei Scans, am Tablet nebeneinander und auf dem QR-Bon untereinander:
+Für die Gäste sind es drei Schritte, am Tablet nebeneinander und auf dem QR-Bon untereinander:
 
 1. **WLAN-QR-Code** scannen und „Verbinden“ antippen.
-2. **Gäste-QR-Code** scannen, die Bestellseite öffnet sich.
+2. **Mobile Daten ausschalten.** Das WLAN hat kein Internet; mit mobilen Daten sucht das Handy die Bestellseite im Mobilfunk und findet sie nicht.
+3. **Gäste-QR-Code** scannen, die Bestellseite öffnet sich. Danach können die mobilen Daten wieder an.
 
 Was man wissen muss:
 
 - **Name und Passwort vergibt Android**, bei jedem Start des Hotspots neu. Die App kann sie nur anzeigen. Ein gedruckter QR-Bon gilt deshalb nur, solange dieser Hotspot läuft; nach einem Neustart neu drucken.
-- **„Kein Internet“ am Handy:** Das WLAN hat absichtlich keins. Fragt das Handy nach, **„Verbunden bleiben“** wählen. Lädt die Bestellseite trotzdem nicht, schickt das Handy die Anfrage über den Mobilfunk — dann kurz die mobilen Daten ausschalten.
+- **„Kein Internet“ am Handy:** Die Meldung stimmt, das WLAN hat absichtlich keins. Manche Handys fragen, ob sie verbunden bleiben sollen (dann „Ja“); verlassen kann man sich darauf nicht — ein Pixel 9 Pro fragt nicht. Deshalb der Schritt mit den mobilen Daten.
 - **Anzahl der Handys:** Ein Tablet-Hotspot nimmt je nach Gerät meist um die zehn Handys gleichzeitig an.
 - **Hotspot aus den Android-Einstellungen:** Läuft der schon, startet der eigene nicht — die App nimmt dann den laufenden und zeigt wie bisher nur den Gäste-QR-Code.
 - **WLAN und Hotspot zugleich** kann nicht jedes Tablet; manche trennen dafür die WLAN-Verbindung.

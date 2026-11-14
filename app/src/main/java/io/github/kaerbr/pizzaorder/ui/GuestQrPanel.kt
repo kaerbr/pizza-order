@@ -160,8 +160,13 @@ internal fun GuestQrCode(url: String, modifier: Modifier = Modifier, description
 }
 
 /**
- * Both codes a guest needs while the tablet's own hotspot runs, in the order they are scanned: into the WLAN
- * first, to the order page second. Side by side where the screen is wide enough, stacked where it is not.
+ * What a guest does while the tablet's own hotspot runs, in order: into the WLAN, mobile data off, order
+ * page. Side by side where the screen is wide enough, stacked where it is not.
+ *
+ * The middle step has no code and is the one that decides whether the last one works: the hotspot has no
+ * internet, so a phone with mobile data on sends the request for the order page into the mobile network.
+ * Android offers no dependable "stay connected" prompt for this (a Pixel 9 Pro shows none), hence a step of
+ * its own instead of a footnote.
  *
  * Name and password stand under the first code in type: Android made them up, so the screen is the only
  * place a guest with a stubborn camera can read them.
@@ -169,9 +174,10 @@ internal fun GuestQrCode(url: String, modifier: Modifier = Modifier, description
 @Composable
 internal fun GuestWifiSteps(wifi: WifiAccess, url: String, qrSize: Dp, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        if (maxWidth >= qrSize * 2 + StepGap) {
+        if (maxWidth >= qrSize * 2 + DataStepWidth + StepGap * 2) {
             Row(horizontalArrangement = Arrangement.spacedBy(StepGap), verticalAlignment = Alignment.Top) {
                 WifiStep(wifi, qrSize)
+                DataStep(DataStepWidth)
                 OrderStep(url, qrSize)
             }
         } else {
@@ -180,13 +186,38 @@ internal fun GuestWifiSteps(wifi: WifiAccess, url: String, qrSize: Dp, modifier:
                 verticalArrangement = Arrangement.spacedBy(StepGap),
             ) {
                 WifiStep(wifi, qrSize)
+                DataStep(qrSize)
                 OrderStep(url, qrSize)
             }
         }
     }
 }
 
-private val StepGap = 24.dp
+private val StepGap = 16.dp
+private val DataStepWidth = 140.dp
+
+@Composable
+private fun DataStep(width: Dp) {
+    Column(
+        Modifier.width(width),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            "2. Mobile Daten aus",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            "Das WLAN hat kein Internet. Mit mobilen Daten sucht das Handy die Bestellseite im Mobilfunk " +
+                "und findet sie nicht.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
 
 @Composable
 private fun WifiStep(wifi: WifiAccess, qrSize: Dp) {
@@ -210,9 +241,9 @@ private fun WifiStep(wifi: WifiAccess, qrSize: Dp) {
 
 @Composable
 private fun OrderStep(url: String, qrSize: Dp) {
-    GuestStep(title = "2. Pizza bestellen", content = url, description = "QR-Code für $url", qrSize = qrSize) {
+    GuestStep(title = "3. Pizza bestellen", content = url, description = "QR-Code für $url", qrSize = qrSize) {
         Text(
-            "Erst scannen, wenn das Handy im WLAN ist.",
+            "Erst scannen, wenn das Handy im WLAN ist und die mobilen Daten aus sind.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -243,7 +274,7 @@ private fun GuestStep(
     }
 }
 
-/** What a phone says about a WLAN without internet, and what the guest answers — the step that trips people. */
+/** The end of the three steps: what the guest may undo, and why the phone complains about this WLAN. */
 internal const val HOTSPOT_PHONE_HINT =
-    "Das WLAN hat kein Internet. Fragt das Handy deshalb nach: „Verbunden bleiben“ wählen. Lädt die " +
-        "Bestellseite trotzdem nicht, am Handy kurz die mobilen Daten ausschalten."
+    "Nach dem Bestellen können die mobilen Daten wieder an. Meldet das Handy „kein Internet“, stimmt das: " +
+        "der Hotspot hat absichtlich keins."

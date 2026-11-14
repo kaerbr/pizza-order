@@ -43,7 +43,7 @@ import io.github.kaerbr.pizzaorder.PrintStatus
  * outside the party out, not the person standing at the tablet.
  *
  * @param hotspot the tablet's own WLAN. While it runs the screen shows two codes — WLAN first, order page
- *   second — because a guest can't know a network Android made up a minute ago.
+ *   last, "mobile Daten aus" between them — because a guest can't know a network Android made up a minute ago.
  * @param printStatus the state of the card print, so the button reports its own outcome like every other
  *   print button in the app.
  */
@@ -95,7 +95,7 @@ fun GuestQrScreen(
                 )
                 url != null -> {
                     if (wifi != null) {
-                        GuestWifiSteps(wifi, url, qrSize = 300.dp)
+                        GuestWifiSteps(wifi, url, qrSize = 280.dp)
                         Text(
                             HOTSPOT_PHONE_HINT,
                             style = MaterialTheme.typography.bodyMedium,
@@ -122,8 +122,8 @@ fun GuestQrScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         if (wifi != null) {
-                            "Erst Code 1, dann Code 2. Bleibt das Tablet in der Küche: den Bon " +
-                                "unten drucken und auf den Tisch legen — beide Codes, nur auf Papier."
+                            "Die drei Schritte der Reihe nach. Bleibt das Tablet in der Küche: den Bon " +
+                                "unten drucken und auf den Tisch legen — dieselben Schritte, nur auf Papier."
                         } else {
                             "Handy draufhalten. Bleibt das Tablet in der Küche: den Bon unten drucken und auf " +
                                 "den Tisch legen — dieselbe Adresse, nur auf Papier."

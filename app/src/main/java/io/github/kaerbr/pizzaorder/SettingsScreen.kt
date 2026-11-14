@@ -775,7 +775,7 @@ private fun GuestSetting(
                 // On the screen, not only on paper: a DHCP lease outlives yesterday's printout, and the panel
                 // picks up a changed address while it is open.
                 if (wifi != null) {
-                    // Two codes while the tablet's own hotspot runs: into the WLAN first, then the order page.
+                    // Three steps while the tablet's own hotspot runs: into the WLAN, mobile data off, order page.
                     GuestWifiSteps(wifi, url, qrSize = 220.dp)
                 } else {
                     GuestQrCode(url, Modifier.size(220.dp).background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp))
@@ -798,7 +798,7 @@ private fun GuestSetting(
                 }
                 Text(
                     if (wifi != null) {
-                        "Gäste scannen erst den WLAN-QR-Code, dann den Gäste-QR-Code. $HOTSPOT_PHONE_HINT"
+                        "Gäste scannen den WLAN-QR-Code, schalten die mobilen Daten aus und scannen dann den Gäste-QR-Code. $HOTSPOT_PHONE_HINT"
                     } else {
                         "Gäste scannen den Code. Findet ein Handy die Seite nicht, obwohl das WLAN passt, " +
                             "sperrt das Gäste-WLAN die Geräte gegenseitig — dann oben den eigenen Hotspot einschalten."
@@ -846,7 +846,7 @@ private fun HotspotSetting(hotspot: HotspotRuntime, serverOn: Boolean, onHotspot
                 hotspot.enabled -> "Gewählt, läuft aber nicht."
                 else ->
                     "Aus. Eingeschaltet spannt das Tablet ein eigenes WLAN ohne Internet auf: kein Router nötig, " +
-                        "die Gäste scannen erst den WLAN-QR-Code, dann den Gäste-QR-Code."
+                        "die Gäste scannen den WLAN-QR-Code, schalten die mobilen Daten aus und scannen dann den Gäste-QR-Code."
             }
         },
         style = MaterialTheme.typography.bodyMedium,

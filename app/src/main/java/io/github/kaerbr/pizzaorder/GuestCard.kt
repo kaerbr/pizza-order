@@ -15,7 +15,8 @@ object GuestCard {
      * @param url what the QR carries, i.e. [LocalAddress.url]. Printed as QR only; the parts go on paper
      *   separately, because the full URL wraps and nobody types a `?k=` by hand.
      * @param wifi the tablet's own hotspot, when it runs. The card then has two codes, in the order a guest
-     *   needs them: into the WLAN first, to the order page second. Without it the card is the one it always
+     *   needs them: into the WLAN first, to the order page last. Between them stands the step that has no
+     *   code: mobile data off, or the phone looks for the page in the mobile network. Without it the card is the one it always
      *   was — the guests are in a WLAN they already know.
      */
     fun format(url: String, wifi: WifiAccess? = null): String {
@@ -49,7 +50,7 @@ object GuestCard {
 
     private fun withWifi(url: String, address: String, code: String, wifi: WifiAccess): String = """
             |[C]<b>P I Z Z A   P A R T Y</b>
-            |[C]In zwei Schritten bestellen
+            |[C]In drei Schritten bestellen
             |[C]================================
             |[C]<b>1. Ins WLAN</b>
             |[C]
@@ -58,10 +59,13 @@ object GuestCard {
             |[C]Handy draufhalten, verbinden.
             |${pair("WLAN", wifi.ssid)}
             |${wifi.password?.takeIf { it.isNotEmpty() }?.let { pair("Passwort", it) } ?: "[C]Ohne Passwort"}
-            |[C]Das WLAN hat kein Internet:
-            |[C]trotzdem verbunden bleiben.
             |[C]================================
-            |[C]<b>2. Pizza bestellen</b>
+            |[C]<b>2. Mobile Daten aus</b>
+            |[C]Das WLAN hat kein Internet.
+            |[C]Sonst sucht das Handy die
+            |[C]Seite im Mobilfunk.
+            |[C]================================
+            |[C]<b>3. Pizza bestellen</b>
             |[C]
             |[C]<qrcode size='40'>$url</qrcode>
             |[C]
@@ -69,6 +73,7 @@ object GuestCard {
             |[L]Adresse[R]$address
             |[L]Code[R]<b>$code</b>
             |[C]================================
+            |[C]Danach mobile Daten wieder an.
             |[C]Gilt, solange der Hotspot läuft.
             |[C]
             |[L]
