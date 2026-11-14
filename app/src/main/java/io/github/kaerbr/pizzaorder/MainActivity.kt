@@ -212,6 +212,7 @@ fun App(vm: AppViewModel) {
                 BackHandler { showGuestQr = false }
                 GuestQrScreen(
                     guest = vm.guest.collectAsStateWithLifecycle().value,
+                    hotspot = vm.hotspot.collectAsStateWithLifecycle().value,
                     printStatus = state.prints[GUEST_CARD_PRINT_ID],
                     onPrintCard = vm::printGuestCard,
                     onClose = { showGuestQr = false },
@@ -529,6 +530,8 @@ private fun SettingsScaffold(
             onSetGuestEnabled = vm::setGuestEnabled,
             onSetGuestPort   = vm::setGuestPort,
             onNewGuestCode   = vm::newGuestCode,
+            guestHotspot     = vm.hotspot.collectAsStateWithLifecycle().value,
+            onSetGuestHotspot = vm::setGuestHotspot,
             onPrintGuestCard = vm::printGuestCard,
             guestCardStatus  = state.prints[GUEST_CARD_PRINT_ID],
             printStyle      = state.printStyle,

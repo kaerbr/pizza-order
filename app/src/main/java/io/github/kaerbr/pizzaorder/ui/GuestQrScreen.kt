@@ -30,6 +30,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.kaerbr.pizzaorder.GuestRuntime
 import io.github.kaerbr.pizzaorder.GuestStatus
+import io.github.kaerbr.pizzaorder.HotspotRuntime
+import io.github.kaerbr.pizzaorder.HotspotStatus
 import io.github.kaerbr.pizzaorder.LocalAddress
 import io.github.kaerbr.pizzaorder.PrintStatus
 
@@ -40,18 +42,22 @@ import io.github.kaerbr.pizzaorder.PrintStatus
  * three taps and a scroll away behind the lock. Nothing on this screen is secret — the code keeps phones
  * outside the party out, not the person standing at the tablet.
  *
+ * @param hotspot the tablet's own WLAN. While it runs the screen shows two codes — WLAN first, order page
+ *   second — because a guest can't know a network Android made up a minute ago.
  * @param printStatus the state of the card print, so the button reports its own outcome like every other
  *   print button in the app.
  */
 @Composable
 fun GuestQrScreen(
     guest: GuestRuntime,
+    hotspot: HotspotRuntime,
     printStatus: PrintStatus?,
     onPrintCard: (String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val ip = rememberLocalIpv4()
+    val wifi = (hotspot.status as? HotspotStatus.Running)?.access
+    val ip = rememberLocalIpv4(preferHotspot = wifi != null)
     // The same rules as the panel: a code without a listening server or without an address would point at
     // nobody, and that is worse than a sentence saying why.
     val url = ip?.takeIf { guest.status is GuestStatus.Running }?.let { LocalAddress.url(it, guest.port, guest.code) }
@@ -82,23 +88,46 @@ fun GuestQrScreen(
                     error = false,
                 )
                 ip == null -> Message(
-                    "Kein WLAN und kein Hotspot. Das Tablet hängt an keinem Netz, also kann kein Handy bestellen.",
+                    // A hotspot that was chosen and didn't come up is the more useful half of the story.
+                    (hotspot.status as? HotspotStatus.Failed)?.let { "Kein eigener Hotspot: ${it.message}" }
+                        ?: "Kein WLAN und kein Hotspot. Das Tablet hängt an keinem Netz, also kann kein Handy bestellen.",
                     error = true,
                 )
                 url != null -> {
-                    // Black on white whatever the theme: a dark-mode code in the palette's brown doesn't scan.
-                    GuestQrCode(
-                        url,
-                        Modifier
-                            .size(360.dp)
-                            .background(Color.White, RoundedCornerShape(16.dp))
-                            .padding(12.dp),
-                    )
+                    if (wifi != null) {
+                        GuestWifiSteps(wifi, url, qrSize = 300.dp)
+                        Text(
+                            HOTSPOT_PHONE_HINT,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                        )
+                    } else {
+                        // Black on white whatever the theme: a dark-mode code in the palette's brown doesn't scan.
+                        GuestQrCode(
+                            url,
+                            Modifier
+                                .size(360.dp)
+                                .background(Color.White, RoundedCornerShape(16.dp))
+                                .padding(12.dp),
+                        )
+                    }
+                    // Chosen but not up: without this line the screen would show the one-code view and a
+                    // guest outside the house WLAN would scan a code that leads nowhere.
+                    when (val status = hotspot.status) {
+                        HotspotStatus.Starting -> Message("Der Hotspot startet …", error = false)
+                        is HotspotStatus.Failed -> Message("Kein eigener Hotspot: ${status.message}", error = true)
+                        else -> Unit
+                    }
                     GuestUrl(url)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Handy draufhalten. Bleibt das Tablet in der Küche: den Bon unten drucken und auf " +
-                            "den Tisch legen — dieselbe Adresse, nur auf Papier.",
+                        if (wifi != null) {
+                            "Erst Code 1, dann Code 2. Bleibt das Tablet in der Küche: den Bon " +
+                                "unten drucken und auf den Tisch legen — beide Codes, nur auf Papier."
+                        } else {
+                            "Handy draufhalten. Bleibt das Tablet in der Küche: den Bon unten drucken und auf " +
+                                "den Tisch legen — dieselbe Adresse, nur auf Papier."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

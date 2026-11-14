@@ -37,9 +37,16 @@ object LocalAddress {
      * @param defaultAddresses what [ConnectivityManager] reports for the active network — empty when there is
      *   none and empty for mobile data, whose address is behind the carrier's NAT.
      * @param interfaces every interface of the device, which is where a hotspot shows up.
+     * @param preferHotspot true while the app's own hotspot runs. The guests are then in that network, and a
+     *   tablet that is in the house WLAN at the same time would otherwise hand out its address over there.
      */
-    fun addressOf(defaultAddresses: List<InetAddress>, interfaces: List<Interface>): String? =
-        ipv4Of(defaultAddresses) ?: hotspotIpv4(interfaces)
+    fun addressOf(
+        defaultAddresses: List<InetAddress>,
+        interfaces: List<Interface>,
+        preferHotspot: Boolean = false,
+    ): String? =
+        if (preferHotspot) hotspotIpv4(interfaces) ?: ipv4Of(defaultAddresses)
+        else ipv4Of(defaultAddresses) ?: hotspotIpv4(interfaces)
 
     /**
      * The hotspot's address, or null.
@@ -58,9 +65,9 @@ object LocalAddress {
         ?.address
 
     /** All addresses of the active network, else of the hotspot; null when there is nothing a phone can reach. */
-    fun ipv4(context: Context): String? {
+    fun ipv4(context: Context, preferHotspot: Boolean = false): String? {
         val manager = context.getSystemService(ConnectivityManager::class.java) ?: return null
-        return addressOf(defaultAddresses(manager), interfaces())
+        return addressOf(defaultAddresses(manager), interfaces(), preferHotspot)
     }
 
     /** What the QR code points at; the join code is what keeps a neighbour out. */

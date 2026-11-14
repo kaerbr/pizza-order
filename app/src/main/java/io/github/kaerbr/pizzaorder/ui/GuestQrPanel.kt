@@ -7,11 +7,17 @@ import android.net.LinkProperties
 import android.net.Network
 import android.os.Build
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Icon
@@ -34,8 +40,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.kaerbr.pizzaorder.GuestQr
+import io.github.kaerbr.pizzaorder.GuestWifi
+import io.github.kaerbr.pizzaorder.WifiAccess
 import kotlinx.coroutines.delay
 import io.github.kaerbr.pizzaorder.LocalAddress
 
@@ -49,27 +60,30 @@ import io.github.kaerbr.pizzaorder.LocalAddress
  * A hotspot is the exception the callback cannot cover: it is no `Network` at all (see [LocalAddress]), so
  * nothing is announced when it appears and the fallback list changes silently. Hence the slow poll — only
  * while this is composed, and cheap: a `NetworkInterface` walk, no socket and no radio.
+ *
+ * @param preferHotspot true while the app's own hotspot runs: the guests are in that network, so its address
+ *   is the one to hand out even when the tablet is in the house WLAN as well.
  */
 @Composable
-internal fun rememberLocalIpv4(): String? {
+internal fun rememberLocalIpv4(preferHotspot: Boolean = false): String? {
     val context = LocalContext.current
-    var address by remember { mutableStateOf(LocalAddress.ipv4(context)) }
+    var address by remember(preferHotspot) { mutableStateOf(LocalAddress.ipv4(context, preferHotspot)) }
 
-    LaunchedEffect(context) {
+    LaunchedEffect(context, preferHotspot) {
         while (true) {
             delay(2_000)
-            address = LocalAddress.ipv4(context)
+            address = LocalAddress.ipv4(context, preferHotspot)
         }
     }
 
-    DisposableEffect(context) {
+    DisposableEffect(context, preferHotspot) {
         val manager = context.getSystemService(ConnectivityManager::class.java)
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) = refresh()
             override fun onLost(network: Network) = refresh()
             // A new lease usually arrives here, not as a new network.
             override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) = refresh()
-            private fun refresh() { address = LocalAddress.ipv4(context) }
+            private fun refresh() { address = LocalAddress.ipv4(context, preferHotspot) }
         }
         runCatching { manager?.registerDefaultNetworkCallback(callback) }
         onDispose { runCatching { manager?.unregisterNetworkCallback(callback) } }
@@ -125,11 +139,14 @@ internal fun GuestUrl(url: String, modifier: Modifier = Modifier) {
  *
  * Always black on white and never themed: a scanner works on contrast, and a dark-mode variant in the
  * palette's brown on near-black is exactly the "it doesn't scan" that costs an evening.
+ *
+ * @param description what a screen reader says. The default names the URL; the WLAN code passes its own, so
+ *   the password is not read out loud across the room.
  */
 @Composable
-internal fun GuestQrCode(url: String, modifier: Modifier = Modifier) {
+internal fun GuestQrCode(url: String, modifier: Modifier = Modifier, description: String = "QR-Code für $url") {
     val matrix = remember(url) { GuestQr.matrix(url) }
-    Canvas(modifier.semantics { contentDescription = "QR-Code für $url" }) {
+    Canvas(modifier.semantics { contentDescription = description }) {
         drawRect(Color.White)
         val module = minOf(size.width, size.height) / matrix.size
         val path = Path()
@@ -141,3 +158,92 @@ internal fun GuestQrCode(url: String, modifier: Modifier = Modifier) {
         drawPath(path, Color.Black)
     }
 }
+
+/**
+ * Both codes a guest needs while the tablet's own hotspot runs, in the order they are scanned: into the WLAN
+ * first, to the order page second. Side by side where the screen is wide enough, stacked where it is not.
+ *
+ * Name and password stand under the first code in type: Android made them up, so the screen is the only
+ * place a guest with a stubborn camera can read them.
+ */
+@Composable
+internal fun GuestWifiSteps(wifi: WifiAccess, url: String, qrSize: Dp, modifier: Modifier = Modifier) {
+    BoxWithConstraints(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        if (maxWidth >= qrSize * 2 + StepGap) {
+            Row(horizontalArrangement = Arrangement.spacedBy(StepGap), verticalAlignment = Alignment.Top) {
+                WifiStep(wifi, qrSize)
+                OrderStep(url, qrSize)
+            }
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(StepGap),
+            ) {
+                WifiStep(wifi, qrSize)
+                OrderStep(url, qrSize)
+            }
+        }
+    }
+}
+
+private val StepGap = 24.dp
+
+@Composable
+private fun WifiStep(wifi: WifiAccess, qrSize: Dp) {
+    GuestStep(
+        title = "1. Ins WLAN",
+        content = GuestWifi.qr(wifi),
+        description = "QR-Code für das WLAN ${wifi.ssid}",
+        qrSize = qrSize,
+    ) {
+        Text(wifi.ssid, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
+        wifi.password?.takeIf { it.isNotEmpty() }?.let { password ->
+            Text(
+                "Passwort: $password",
+                style = MaterialTheme.typography.bodyMedium,
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun OrderStep(url: String, qrSize: Dp) {
+    GuestStep(title = "2. Pizza bestellen", content = url, description = "QR-Code für $url", qrSize = qrSize) {
+        Text(
+            "Erst scannen, wenn das Handy im WLAN ist.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun GuestStep(
+    title: String,
+    content: String,
+    description: String,
+    qrSize: Dp,
+    below: @Composable () -> Unit,
+) {
+    Column(
+        Modifier.width(qrSize),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        GuestQrCode(
+            content,
+            Modifier.size(qrSize).background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp),
+            description,
+        )
+        below()
+    }
+}
+
+/** What a phone says about a WLAN without internet, and what the guest answers — the step that trips people. */
+internal const val HOTSPOT_PHONE_HINT =
+    "Das WLAN hat kein Internet. Fragt das Handy deshalb nach: „Verbunden bleiben“ wählen. Lädt die " +
+        "Bestellseite trotzdem nicht, am Handy kurz die mobilen Daten ausschalten."

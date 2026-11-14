@@ -32,7 +32,8 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 - 📋 **Bestellliste** mit „Wartet“, „Im Ofen“ und „Fertig“, Wartezeit und Nachdrucken; was nicht gedruckt wurde, meldet das Schnellmenü rot, auch nach einem Neustart
 - 🎨 **Zwei Ausdruck-Designs**: schlichter Kassenbon oder mit Verzierung
 - 📱 **Gäste bestellen wahlweise vom eigenen Handy**: QR-Code am Tablet, das Handy öffnet die Bestellseite im WLAN — ohne App, ohne Internet. Jedes Handy sieht nur die eigene Bestellung und die Warteschlange als Zahl. Der Gäste-Server dafür ist standardmäßig aus und wird im Admin-Panel eingeschaltet; ohne ihn bestellen Gäste wie gewohnt am Tablet. Siehe [Gäste bestellen vom Handy](#-gäste-bestellen-vom-handy)
-- 🪧 **QR-Bon für den Tisch**: derselbe Code gedruckt, damit das Tablet in der Küche bleiben kann
+- 📡 **Eigener Hotspot**: gibt es kein brauchbares WLAN, spannt das Tablet selbst eins auf — ohne Router, ohne Internet. Gäste scannen erst den WLAN-QR-Code, dann den Gäste-QR-Code. Siehe [Ohne WLAN: der eigene Hotspot](#-ohne-wlan-der-eigene-hotspot)
+- 🪧 **QR-Bon für den Tisch**: derselbe Code gedruckt, damit das Tablet in der Küche bleiben kann; mit eigenem Hotspot stehen beide Codes darauf
 - 📱 **QR-Codes** auf dem Ausdruck, z. B. zu einem Pizza-Witz
 - 🌗 **Aussehen**: Hell oder Dunkel und mehrere Farbpaletten, wählbar im Schnellmenü
 - 🔒 **Admin-Panel** hinter einem Entsperrmuster, damit Gäste nicht im Menü herumspielen
@@ -73,7 +74,7 @@ Die meisten günstigen Bluetooth-Bondrucker sprechen ESC/POS und sollten funktio
 
 Der Gäste-Server ist standardmäßig **aus**. Im Admin-Panel unter „Gäste-Bestellung“ einschalten, Port setzen und den angezeigten Code auf dem Tablet lassen. Den QR-Code scannen Gäste mit der Handykamera; die Seite öffnet sich im Browser, ohne App und ohne Internet. Neben dem Code steht dieselbe Adresse als Text mit **„Kopieren“** — für Handys, deren Kamera nicht will, und für den Weg über einen Messenger.
 
-Voraussetzung: Handy und Tablet im **selben WLAN**. Viele Gäste-WLANs trennen Geräte voneinander (Client Isolation); dann funktioniert es nicht, und das Tablet als **Hotspot** ist der Weg daran vorbei.
+Voraussetzung: Handy und Tablet im **selben WLAN**. Viele Gäste-WLANs trennen Geräte voneinander (Client Isolation); dann funktioniert es nicht, und der **eigene Hotspot** ist der Weg daran vorbei — genauso, wenn es gar kein WLAN gibt.
 
 Der Code bleibt gültig, bis du im Admin-Panel **„Neuer Code“** drückst — auch über einen Neustart der App hinweg. Ein einmal gedruckter QR-Bon gilt also weiter, bis du ihn bewusst ersetzt; das ist gewollt, damit ein Gast nach einem Absturz weiterbestellen kann.
 
@@ -89,6 +90,23 @@ Was die Gäste sehen:
 Ein Handy sieht **nur die eigene Bestellung**. Beim ersten Bestellen bekommt es dafür ein zufälliges Token, das der Browser speichert; der Server filtert die Antwort danach. Fremde Namen, Notizen und Pizzen gehen gar nicht erst über das WLAN — auch nicht „nur zum Ausblenden“ in der Seite.
 
 Das Tablet sieht weiterhin alles: jede Gast-Bestellung landet in der normalen Bestellliste, mit Nummer, Name, Notiz und Ausdruck, als wäre sie am Tablet aufgenommen worden.
+
+### 📡 Ohne WLAN: der eigene Hotspot
+
+Im Admin-Panel unter „Gäste-Bestellung“ **„Eigenen Hotspot einschalten“**. Solange der Gäste-Server läuft, spannt das Tablet dann ein eigenes WLAN ohne Internet auf; ein Router oder ein fremdes Netz ist nicht nötig. Android fragt dafür einmalig nach **„Geräte in der Nähe“** (bis Android 12 nach dem genauen Standort, der dann auch eingeschaltet sein muss).
+
+Für die Gäste sind es zwei Scans, am Tablet nebeneinander und auf dem QR-Bon untereinander:
+
+1. **WLAN-QR-Code** scannen und „Verbinden“ antippen.
+2. **Gäste-QR-Code** scannen, die Bestellseite öffnet sich.
+
+Was man wissen muss:
+
+- **Name und Passwort vergibt Android**, bei jedem Start des Hotspots neu. Die App kann sie nur anzeigen. Ein gedruckter QR-Bon gilt deshalb nur, solange dieser Hotspot läuft; nach einem Neustart neu drucken.
+- **„Kein Internet“ am Handy:** Das WLAN hat absichtlich keins. Fragt das Handy nach, **„Verbunden bleiben“** wählen. Lädt die Bestellseite trotzdem nicht, schickt das Handy die Anfrage über den Mobilfunk — dann kurz die mobilen Daten ausschalten.
+- **Anzahl der Handys:** Ein Tablet-Hotspot nimmt je nach Gerät meist um die zehn Handys gleichzeitig an.
+- **Hotspot aus den Android-Einstellungen:** Läuft der schon, startet der eigene nicht — die App nimmt dann den laufenden und zeigt wie bisher nur den Gäste-QR-Code.
+- **WLAN und Hotspot zugleich** kann nicht jedes Tablet; manche trennen dafür die WLAN-Verbindung.
 
 ## 🔒 Admin-Panel
 
@@ -111,7 +129,7 @@ Im Admin-Panel kannst du:
 - begrenzen, wie viele **offene Bestellungen** es gleichzeitig geben darf (ohne Eintrag kein Limit); ist das Limit erreicht, sagt die App ab, statt die Küche zu überfüllen
 - den **Bildschirm fixieren**, damit Home und Zurück gesperrt sind (gegen gezieltes Lösen hilft die PIN-Abfrage in den Android-Einstellungen)
 - das **Ausdruck-Design** wählen und einen **Testdruck** auslösen
-- den **Gäste-Server** ein- und ausschalten (Standard: aus), den Port setzen und den Code neu erzeugen; derselbe Abschnitt zeigt den QR-Code für Gäste und druckt den **QR-Bon für den Tisch**. Ab Android 17 fragt das System einmalig nach der Berechtigung für lokale Netzwerke; ohne sie startet der Server nicht und der Abschnitt nennt den Grund
+- den **Gäste-Server** ein- und ausschalten (Standard: aus), den Port setzen und den Code neu erzeugen; derselbe Abschnitt zeigt den QR-Code für Gäste und druckt den **QR-Bon für den Tisch**; dort lässt sich auch der **eigene Hotspot** einschalten. Ab Android 17 fragt das System einmalig nach der Berechtigung für lokale Netzwerke; ohne sie startet der Server nicht und der Abschnitt nennt den Grund
 - **QR-Links zum Bon** pflegen (die Codes auf dem Küchenbon, nicht der Gäste-Zugang)
 - **alle Bestellungen löschen**, z. B. vor dem nächsten Abend (der Teig-Zähler startet dabei wieder bei der Anzahl für heute, und „aus“ markierte Zutaten sind wieder da)
 - **alles zurücksetzen**: Bestellungen, Menü, Teig, QR-Links und Ausdruck-Design wie nach der Installation

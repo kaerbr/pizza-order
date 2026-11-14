@@ -77,6 +77,31 @@ class GuestNetworkTest {
     }
 
     @Test
+    fun theAppsOwnHotspotWinsOverTheHouseWifi() {
+        // Tablet in the house WLAN and its own hotspot up at the same time: the guests are in the hotspot,
+        // so the code must not hand out the address from the other network.
+        val house = listOf(InetAddress.getByName("192.168.178.23"))
+        val interfaces = listOf(iface("wlan0", "192.168.178.23"), iface("ap0", "192.168.49.1"))
+
+        assertEquals("192.168.49.1", LocalAddress.addressOf(house, interfaces, preferHotspot = true))
+        // Without the app's hotspot nothing changes: the default network stays the answer.
+        assertEquals("192.168.178.23", LocalAddress.addressOf(house, interfaces))
+    }
+
+    @Test
+    fun preferringTheHotspotStillFallsBackToTheDefaultNetwork() {
+        // Asked for, but no interface with a private address shows up yet: better the house WLAN's address
+        // than none.
+        val address = LocalAddress.addressOf(
+            defaultAddresses = listOf(InetAddress.getByName("192.168.178.23")),
+            interfaces = listOf(iface("lo", "127.0.0.1")),
+            preferHotspot = true,
+        )
+
+        assertEquals("192.168.178.23", address)
+    }
+
+    @Test
     fun theAccessPointNameWinsOverAnotherPrivateAddress() {
         // Two private addresses, one of them on the AP interface: the AP's is the one guests reach.
         val address = LocalAddress.addressOf(
@@ -194,10 +219,57 @@ class GuestNetworkTest {
         assertTrue(matrix.any { row -> row.any { !it } })
     }
 
+    // ─── WLAN-Code ──────────────────────────────────────────────────────────
+
+    @Test
+    fun theWifiCodeIsWhatAPhoneCameraExpects() {
+        assertEquals(
+            "WIFI:T:WPA;S:AndroidShare_1234;P:k3pt5ecret;;",
+            GuestWifi.qr(WifiAccess("AndroidShare_1234", "k3pt5ecret")),
+        )
+    }
+
+    @Test
+    fun specialCharactersInNameAndPasswordAreEscaped() {
+        // A ';' ends a field: unescaped, the phone would try half the password and report it as wrong.
+        assertEquals(
+            """WIFI:T:WPA;S:Pizza\;Party;P:a\:b\,c\"d\\e;;""",
+            GuestWifi.qr(WifiAccess("Pizza;Party", """a:b,c"d\e""")),
+        )
+    }
+
+    @Test
+    fun anOpenHotspotHasNoPasswordField() {
+        assertEquals("WIFI:T:nopass;S:Offen;;", GuestWifi.qr(WifiAccess("Offen", null)))
+        assertEquals("WIFI:T:nopass;S:Offen;;", GuestWifi.qr(WifiAccess("Offen", "")))
+    }
+
+    @Test
+    fun aWpa3OnlyHotspotSaysSo() {
+        assertEquals("WIFI:T:SAE;S:Neu;P:geheim123;;", GuestWifi.qr(WifiAccess("Neu", "geheim123", sae = true)))
+    }
+
+    @Test
+    fun theDrawnWifiCodeReadsBackUnchanged() {
+        // Longer than the URL, so the matrix grows; it still has to come back character for character.
+        val text = GuestWifi.qr(WifiAccess("AndroidShare_1234", "Xy7;kq:92,mP"))
+
+        assertEquals(text, decode(GuestQr.matrix(text)))
+    }
+
+    private val DECODE_SCALE = 4
+
     /** Real decoding through zxing, not an eyeball check: this is what a phone's camera does. */
     private fun decode(matrix: Array<BooleanArray>): String {
-        val pixels = Array(matrix.size) { y -> IntArray(matrix.size) { x -> if (matrix[y][x]) 0xFF000000.toInt() else 0xFFFFFFFF.toInt() } }
-        val source = RGBLuminanceSource(matrix.size, matrix.size, pixels)
+        // A few pixels per module, like on a screen or on paper: at one pixel each, zxing's detector loses
+        // the alignment pattern of the larger codes (the WLAN one), which no camera ever gets to see.
+        val side = matrix.size * DECODE_SCALE
+        val pixels = Array(side) { y ->
+            IntArray(side) { x ->
+                if (matrix[y / DECODE_SCALE][x / DECODE_SCALE]) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
+            }
+        }
+        val source = RGBLuminanceSource(side, side, pixels)
         return QRCodeReader().decode(BinaryBitmap(HybridBinarizer(source))).text
     }
 

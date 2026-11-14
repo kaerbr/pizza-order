@@ -37,6 +37,10 @@ class GuestService : Service() {
         scope.launch {
             val running = OrderDesk.get(this@GuestService).startGuest()
             if (running) {
+                // The tablet's own WLAN, if the admin chose it. Requested here because the server is what
+                // makes it worth having — and because this start comes from the foreground, which is where
+                // Android allows a hotspot to be opened.
+                OrderDesk.get(this@GuestService).hotspot.start()
                 updateNotification(host.runtime.value)
             } else {
                 // Nothing listens, so nothing needs to hold a foreground slot: the panel keeps the reason
@@ -52,6 +56,8 @@ class GuestService : Service() {
         scope.cancel()
         // Closes the socket; the admin's "on" stays in preferences so the next app start brings it back.
         OrderDesk.get(this).guest.shutdown()
+        // No server, no reason to keep a radio on; the admin's choice stays, like the server's.
+        OrderDesk.get(this).hotspot.stop()
         super.onDestroy()
     }
 

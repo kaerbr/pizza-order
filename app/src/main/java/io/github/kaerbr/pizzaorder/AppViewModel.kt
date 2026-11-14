@@ -29,6 +29,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     /** Switch, port and join code of the guest server, plus where it stands right now. */
     val guest: StateFlow<GuestRuntime> = desk.guest.runtime
 
+    /** The tablet's own WLAN for the guests: the admin's choice and what Android made of it. */
+    val hotspot: StateFlow<HotspotRuntime> = desk.hotspot.runtime
+
     // The confirmation belongs to the caller, not to the shared state: with guest orders arriving over HTTP,
     // a single slot would let one guest's slip replace another's.
     private val _confirmation = MutableStateFlow<Confirmation?>(null)
@@ -62,7 +65,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun testPrint() = service.testPrint()
 
     /** The table card a guest scans; no order behind it, so it reports its own print state. */
-    fun printGuestCard(url: String) = service.printGuestCard(url)
+    fun printGuestCard(url: String) =
+        // With the app's own hotspot up, the card carries the way into the WLAN too: a guest at the table has
+        // no other way to learn a password Android made up.
+        service.printGuestCard(url, (desk.hotspot.runtime.value.status as? HotspotStatus.Running)?.access)
 
     // ─── Orders ─────────────────────────────────────────────────────────────
 
@@ -107,6 +113,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun setGuestPort(port: Int) = viewModelScope.launch {
         if (!desk.startGuest(port)) GuestService.stop(getApplication())
     }
+
+    /**
+     * The tablet's own hotspot on or off. It only comes up while the server runs; switched on before that,
+     * it follows the server's start.
+     */
+    fun setGuestHotspot(enabled: Boolean) =
+        desk.hotspot.setEnabled(enabled, serverRunning = desk.guest.runtime.value.status is GuestStatus.Running)
 
     /** Invalidates every QR code handed out so far. */
     fun newGuestCode() {

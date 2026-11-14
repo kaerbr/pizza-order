@@ -61,6 +61,14 @@ class GuestSettings(context: Context) : GuestPreferences {
     override val code: String
         get() = prefs.getString(KEY_CODE, null) ?: newCode().also { prefs.edit { putString(KEY_CODE, it) } }
 
+    /**
+     * Whether the tablet opens its own hotspot while the guest server runs. Not part of [GuestPreferences]:
+     * the server neither knows nor cares which network its guests come in through.
+     */
+    var hotspot: Boolean
+        get() = prefs.getBoolean(KEY_HOTSPOT, false)
+        set(value) = prefs.edit { putBoolean(KEY_HOTSPOT, value) }
+
     fun newCode(): String {
         val alphabet = "abcdefghjkmnpqrstuvwxyz23456789" // no l/i/o/0/1: read out loud and typed by hand
         val random = SecureRandom()
@@ -77,6 +85,7 @@ class GuestSettings(context: Context) : GuestPreferences {
         private const val KEY_ENABLED = "enabled"
         private const val KEY_PORT = "port"
         private const val KEY_CODE = "code"
+        private const val KEY_HOTSPOT = "hotspot"
     }
 }
 
@@ -110,6 +119,9 @@ class OrderDesk private constructor(private val application: Application) {
     val guest = GuestHost(service, guestSettings, { GuestPage.load(application) }) {
         LocalNetworkPermission.isMissing(application)
     }
+
+    /** The tablet's own WLAN for the guests; follows the server up and down, see [GuestService]. */
+    val hotspot = GuestHotspot(application, guestSettings)
 
     private val loadLock = Mutex()
     @Volatile private var loaded = false
