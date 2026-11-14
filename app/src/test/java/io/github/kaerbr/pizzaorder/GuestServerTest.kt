@@ -239,7 +239,9 @@ class GuestServerTest {
     private fun pageHtml(): String {
         val page = File("src/main/assets/guest/index.html")
             .takeIf { it.exists() } ?: File("app/src/main/assets/guest/index.html")
-        return page.readText()
+        // A Windows checkout may hand the page out with CRLF (git's autocrlf); the checks below are about
+        // what the script says, not about how the line ends.
+        return page.readText().replace("\r\n", "\n")
     }
 
     @Test
