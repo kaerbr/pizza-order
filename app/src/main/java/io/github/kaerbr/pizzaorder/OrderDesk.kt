@@ -61,6 +61,14 @@ class GuestSettings(context: Context) : GuestPreferences {
     override val code: String
         get() = prefs.getString(KEY_CODE, null) ?: newCode().also { prefs.edit { putString(KEY_CODE, it) } }
 
+    /**
+     * Whether the tablet opens its own hotspot while the guest server runs. Not part of [GuestPreferences]:
+     * the server neither knows nor cares which network its guests come in through.
+     */
+    var hotspot: Boolean
+        get() = prefs.getBoolean(KEY_HOTSPOT, false)
+        set(value) = prefs.edit { putBoolean(KEY_HOTSPOT, value) }
+
     fun newCode(): String {
         val alphabet = "abcdefghjkmnpqrstuvwxyz23456789" // no l/i/o/0/1: read out loud and typed by hand
         val random = SecureRandom()
@@ -77,6 +85,7 @@ class GuestSettings(context: Context) : GuestPreferences {
         private const val KEY_ENABLED = "enabled"
         private const val KEY_PORT = "port"
         private const val KEY_CODE = "code"
+        private const val KEY_HOTSPOT = "hotspot"
     }
 }
 
@@ -110,6 +119,9 @@ class OrderDesk private constructor(private val application: Application) {
     val guest = GuestHost(service, guestSettings, { GuestPage.load(application) }) {
         LocalNetworkPermission.isMissing(application)
     }
+
+    /** The tablet's own WLAN for the guests; follows the server up and down, see [GuestService]. */
+    val hotspot = GuestHotspot(application, guestSettings)
 
     private val loadLock = Mutex()
     @Volatile private var loaded = false
@@ -178,7 +190,7 @@ class GuestHost(
      * Starts on [port], or keeps the running one if it already listens there.
      *
      * The switch is persisted only once something listens: a failed start must not leave "on" behind, or the
-     * panel offers "Server ausschalten" for a server that isn't there and every app start retries the same
+     * panel offers "Ausschalten" for a server that isn't there and every app start retries the same
      * failure from [AppViewModel].
      *
      * @return true when [port] is being served.
@@ -228,7 +240,7 @@ class GuestHost(
      * the service, and after a restart the switch must still read "on" so the server comes back.
      *
      * A [GuestStatus.Failed] stays: it is the reason the service is going away, and "Aus: …" under a
-     * "Server ausschalten" button would hide it.
+     * "Ausschalten" button would hide it.
      */
     fun shutdown() = synchronized(lock) {
         stopLocked()

@@ -84,4 +84,59 @@ class GuestCardTest {
 
         assertEquals(Align.Center, qrLine.segments.single().align)
     }
+
+    // ─── Mit eigenem Hotspot ────────────────────────────────────────────────
+
+    private val wifi = WifiAccess("AndroidShare_1234", "k3pt5ecret")
+
+    @Test
+    fun withTheHotspotTheCardCarriesTheWlanCodeFirstAndTheOrderCodeLast() {
+        // The order matters: a phone that scans the order code before it is in the WLAN gets an error page.
+        val codes = lines(GuestCard.format(url, wifi)).flatMap { it.segments }.filterIsInstance<QrSegment>()
+
+        assertEquals(listOf(GuestWifi.qr(wifi), url), codes.map { it.url })
+        assertTrue(codes.all { it.align == Align.Center && it.sizeMm >= 35 })
+    }
+
+    @Test
+    fun nameAndPasswordAreOnPaperBecauseAndroidMadeThemUp() {
+        val text = textOf(GuestCard.format(url, wifi))
+
+        assertTrue(text, "AndroidShare_1234" in text)
+        assertTrue(text, "k3pt5ecret" in text)
+        // Still everything the plain card has.
+        assertTrue(text, "192.168.43.1" in text && "abc123" in text)
+        // And the step without a code, the one that trips guests: with mobile data on, the phone looks for
+        // the page in the mobile network. It has to stand between the two codes, not after them.
+        assertTrue(text, "Mobile Daten aus" in text)
+        assertTrue(text, text.indexOf("1. Ins WLAN") < text.indexOf("2. Mobile Daten aus"))
+        assertTrue(text, text.indexOf("2. Mobile Daten aus") < text.indexOf("3. Pizza bestellen"))
+    }
+
+    @Test
+    fun theHotspotCardSaysItEndsWithTheHotspot() {
+        // Android picks a new name and password on every start, so this card expires differently.
+        assertTrue("Hotspot" in textOf(GuestCard.format(url, wifi)))
+    }
+
+    @Test
+    fun noLineOfTheHotspotCardOverflowsEvenWithTheLongestNames() {
+        // 32 characters is the longest name a WLAN can have, 63 the longest password. A password that long
+        // wraps on any paper — it gets a line of its own and is left out of the count; everything around it
+        // must still fit.
+        val long = WifiAccess("N".repeat(32), "p".repeat(63))
+        listOf(wifi, long, WifiAccess("Offen", null)).forEach { access ->
+            val longest = lines(GuestCard.format(url, access)).flatMap { it.segments }.filterIsInstance<TextSegment>()
+                .filter { seg -> seg.runs.none { it.text == long.password } }
+                .maxOf { seg -> seg.runs.joinToString("") { it.text }.length }
+            assertTrue("longest line is $longest chars for $access", longest <= Printout.LINE_CHARS)
+        }
+    }
+
+    @Test
+    fun aNameThatLooksLikeMarkupKeepsTheHotspotOffThePaper() {
+        // Name and password are Android's, not the admin's: rather the plain card than a garbled one.
+        assertEquals(GuestCard.format(url), GuestCard.format(url, WifiAccess("Pizza<b>", "geheim123")))
+        assertEquals(GuestCard.format(url), GuestCard.format(url, WifiAccess("Pizza", "[L]geheim")))
+    }
 }

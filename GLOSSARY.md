@@ -79,8 +79,16 @@ _Avoid_: Fun-Link
 Der QR-Code, der die Gastseite im lokalen Netz öffnet. Steht im Schnellmenü unter „QR-Code für Gäste“ und im Gäste-Abschnitt des Admin-Panels; er ist kein QR-Link und landet nicht auf dem Küchenbon.
 _Avoid_: Bestell-QR, Gast-Link, QR-Links
 
+**Eigener Hotspot**:
+Das WLAN ohne Internet, das die App auf dem Tablet selbst aufspannt, solange der Gäste-Server läuft: kein Router, kein fremdes Netz. Name und Passwort vergibt Android bei jedem Start neu; die App kann sie nur anzeigen. Nicht zu verwechseln mit dem Hotspot aus den Android-Einstellungen, der das Internet des Tablets teilt.
+_Avoid_: Tethering, App-WLAN, Party-WLAN
+
+**WLAN-QR-Code**:
+Der QR-Code, mit dem ein Handy dem eigenen Hotspot beitritt. Kommt immer vor dem Gäste-QR-Code: erst ins WLAN, dann mobile Daten aus, dann zur Gastseite.
+_Avoid_: Hotspot-Code, WLAN-Code
+
 **QR-Bon**:
-Der gedruckte Bon für den Tisch: derselbe Gäste-QR-Code, dazu Adresse und Code in Schrift, für Handys, deren Kamera nicht will. Damit kann das Tablet in der Küche bleiben.
+Der gedruckte Bon für den Tisch: derselbe Gäste-QR-Code, dazu Adresse und Code in Schrift, für Handys, deren Kamera nicht will. Damit kann das Tablet in der Küche bleiben. Läuft der eigene Hotspot, steht davor der WLAN-QR-Code mit Name und Passwort; dieser Bon gilt nur, solange der Hotspot läuft.
 _Avoid_: Tischkarte, Flyer, QR-Karte
 
 ## Verwaltung
