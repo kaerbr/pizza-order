@@ -186,7 +186,10 @@ class GuestHotspot(private val context: Context, private val settings: GuestSett
 
     private fun explain(reason: Int): String = when (reason) {
         WifiManager.LocalOnlyHotspotCallback.ERROR_INCOMPATIBLE_MODE ->
-            "Am Tablet läuft schon ein Hotspot. Den in den Android-Einstellungen ausschalten oder ihn selbst benutzen."
+            // Android answers with this code for two things: tethering is already on, or the app is not in
+            // front. The first is the one the admin can do something about.
+            "Android lässt gerade keinen eigenen Hotspot zu. Läuft am Tablet schon einer (Android-Einstellungen), " +
+                "dann den ausschalten oder ihn selbst benutzen."
         WifiManager.LocalOnlyHotspotCallback.ERROR_TETHERING_DISALLOWED ->
             "Hotspots sind auf diesem Tablet gesperrt."
         WifiManager.LocalOnlyHotspotCallback.ERROR_NO_CHANNEL ->

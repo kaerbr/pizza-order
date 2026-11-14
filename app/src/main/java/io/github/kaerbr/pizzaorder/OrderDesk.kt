@@ -190,7 +190,7 @@ class GuestHost(
      * Starts on [port], or keeps the running one if it already listens there.
      *
      * The switch is persisted only once something listens: a failed start must not leave "on" behind, or the
-     * panel offers "Server ausschalten" for a server that isn't there and every app start retries the same
+     * panel offers "Ausschalten" for a server that isn't there and every app start retries the same
      * failure from [AppViewModel].
      *
      * @return true when [port] is being served.
@@ -240,7 +240,7 @@ class GuestHost(
      * the service, and after a restart the switch must still read "on" so the server comes back.
      *
      * A [GuestStatus.Failed] stays: it is the reason the service is going away, and "Aus: …" under a
-     * "Server ausschalten" button would hide it.
+     * "Ausschalten" button would hide it.
      */
     fun shutdown() = synchronized(lock) {
         stopLocked()

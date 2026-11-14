@@ -163,8 +163,6 @@ internal fun GuestQrCode(url: String, modifier: Modifier = Modifier, description
  * What a guest does while the tablet's own hotspot runs, in order: into the WLAN, mobile data off, order
  * page. Side by side or stacked, whichever leaves the codes bigger in the space there is.
  *
- * @param maxQr the largest a code gets; it shrinks to fit the width and, where the height is limited, that.
- *
  * The middle step has no code and is the one that decides whether the last one works: the hotspot has no
  * internet, so a phone with mobile data on sends the request for the order page into the mobile network.
  * Android offers no dependable "stay connected" prompt for this (a Pixel 9 Pro shows none), hence a step of
@@ -172,6 +170,8 @@ internal fun GuestQrCode(url: String, modifier: Modifier = Modifier, description
  *
  * Name and password stand under the first code in type: Android made them up, so the screen is the only
  * place a guest with a stubborn camera can read them.
+ *
+ * @param maxQr the largest a code gets; it shrinks to fit the width and, where the height is limited, that.
  */
 @Composable
 internal fun GuestWifiSteps(wifi: WifiAccess, url: String, maxQr: Dp, modifier: Modifier = Modifier) {

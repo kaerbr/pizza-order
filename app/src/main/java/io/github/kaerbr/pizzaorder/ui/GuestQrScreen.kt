@@ -81,12 +81,10 @@ fun GuestQrScreen(
             )
 
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                val server = guest.status
                 when {
-                    guest.status is GuestStatus.Failed -> Message(
-                        "Der Server läuft nicht: ${(guest.status as GuestStatus.Failed).message}",
-                        error = true,
-                    )
-                    guest.status !is GuestStatus.Running -> Message(
+                    server is GuestStatus.Failed -> Message("Der Server läuft nicht: ${server.message}", error = true)
+                    server !is GuestStatus.Running -> Message(
                         "Die Gäste-Bestellung ist aus. Im Admin-Panel unter „Gäste-Bestellung“ einschalten, " +
                             "dann erscheint hier der QR-Code.",
                         error = false,

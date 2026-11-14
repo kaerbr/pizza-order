@@ -683,12 +683,22 @@ private fun GuestSetting(
     var hotspotDenied by remember { mutableStateOf(false) }
     // The hotspot choice first, the server second: the service that starts the server opens the hotspot
     // right behind it if the choice says so (see GuestService).
-    val startWithHotspot = { onHotspot(true); onEnabled(true) }
+    val startWithHotspot = {
+        hotspotDenied = false
+        onHotspot(true)
+        onEnabled(true)
+    }
     val askHotspotPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         // Asked the system again instead of trusting the map: "ungefährer Standort" comes back as a yes for
         // one of the two entries and is still not enough.
         hotspotDenied = HotspotPermission.isMissing(context)
         if (!hotspotDenied) startWithHotspot()
+    }
+    // Also the way back in after a failure: a permission taken away in Android's settings is one of the
+    // reasons a hotspot fails, and asking again is the only fix.
+    val requestHotspot = {
+        if (HotspotPermission.isMissing(context)) askHotspotPermission.launch(HotspotPermission.names)
+        else startWithHotspot()
     }
     val hotspotFailed = hotspot.status as? HotspotStatus.Failed
 
@@ -735,7 +745,8 @@ private fun GuestSetting(
             color = MaterialTheme.colorScheme.error,
         )
         if (guest.enabled) {
-            TextButton(onClick = { onHotspot(true) }) { Text("Hotspot erneut starten") }
+            // The server already runs, so this only brings the hotspot up behind it.
+            TextButton(onClick = requestHotspot) { Text("Hotspot erneut starten") }
         }
     } else if (hotspotDenied) {
         Text(
@@ -794,10 +805,7 @@ private fun GuestSetting(
         }
     } else {
         Button(
-            onClick = {
-                if (HotspotPermission.isMissing(context)) askHotspotPermission.launch(HotspotPermission.names)
-                else startWithHotspot()
-            },
+            onClick = requestHotspot,
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.fillMaxWidth().height(56.dp),
         ) { Text("Einschalten mit eigenem Hotspot") }
