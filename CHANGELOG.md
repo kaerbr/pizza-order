@@ -1,3 +1,18 @@
+# [1.11.0](https://github.com/kaerbr/[secure]/compare/v1.10.0...v1.11.0) (2026-11-14)
+
+
+### Bug Fixes
+
+* "mobile Daten aus" is a step of its own between the two codes ([e0ff384](https://github.com/kaerbr/[secure]/commit/e0ff384b5eeb5b71a678ae9ee5760cca319bfac8))
+* a hotspot retry asks for the permission again, and the review's loose ends ([4cc3657](https://github.com/kaerbr/[secure]/commit/4cc3657a2f0ddca99655b45909b675edbeef7974))
+
+
+### Features
+
+* a tap on a guest QR code shows it large ([0032eb8](https://github.com/kaerbr/[secure]/commit/0032eb88d28cc25d64702e88a8be46a2cbb9d2e2))
+* one button starts guest ordering, and the guest screen fits without scrolling ([c131525](https://github.com/kaerbr/[secure]/commit/c131525932c96b886a0c981ecafd97326e596feb))
+* the tablet opens its own hotspot and hands out the way in as a QR code ([86bbb21](https://github.com/kaerbr/[secure]/commit/86bbb217f6f7c8c4ff9ba215eb018f9d199566f6))
+
 # [1.10.0](https://github.com/kaerbr/[secure]/compare/v1.9.1...v1.10.0) (2026-11-13)
 
 
