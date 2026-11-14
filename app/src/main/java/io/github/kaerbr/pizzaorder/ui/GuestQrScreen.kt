@@ -2,7 +2,10 @@ package io.github.kaerbr.pizzaorder.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,9 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
@@ -63,111 +64,104 @@ fun GuestQrScreen(
     val url = ip?.takeIf { guest.status is GuestStatus.Running }?.let { LocalAddress.url(it, guest.port, guest.code) }
 
     Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        // No scrolling: this is the screen a guest holds a phone up to, and a code half below the fold is a
+        // code nobody scans. Title and buttons take what they need, the codes get the rest and size
+        // themselves to it — on an 8.7" tablet as on a big one, upright or on its side.
         Column(
             Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 "Gäste-Bestellung",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
 
-            when {
-                guest.status is GuestStatus.Failed -> Message(
-                    "Der Server läuft nicht: ${(guest.status as GuestStatus.Failed).message}",
-                    error = true,
-                )
-                guest.status !is GuestStatus.Running -> Message(
-                    "Der Server ist aus. Im Admin-Panel unter „Gäste-Bestellung“ einschalten, " +
-                        "dann erscheint hier der QR-Code.",
-                    error = false,
-                )
-                ip == null -> Message(
-                    // A hotspot that was chosen and didn't come up is the more useful half of the story.
-                    (hotspot.status as? HotspotStatus.Failed)?.let { "Kein eigener Hotspot: ${it.message}" }
-                        ?: "Kein WLAN und kein Hotspot. Das Tablet hängt an keinem Netz, also kann kein Handy bestellen.",
-                    error = true,
-                )
-                url != null -> {
-                    if (wifi != null) {
-                        GuestWifiSteps(wifi, url, qrSize = 280.dp)
-                        Text(
-                            HOTSPOT_PHONE_HINT,
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                        )
-                    } else {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                when {
+                    guest.status is GuestStatus.Failed -> Message(
+                        "Der Server läuft nicht: ${(guest.status as GuestStatus.Failed).message}",
+                        error = true,
+                    )
+                    guest.status !is GuestStatus.Running -> Message(
+                        "Die Gäste-Bestellung ist aus. Im Admin-Panel unter „Gäste-Bestellung“ einschalten, " +
+                            "dann erscheint hier der QR-Code.",
+                        error = false,
+                    )
+                    ip == null -> Message(
+                        // A hotspot that was chosen and didn't come up is the more useful half of the story.
+                        (hotspot.status as? HotspotStatus.Failed)?.let { "Kein eigener Hotspot: ${it.message}" }
+                            ?: "Kein WLAN und kein Hotspot. Das Tablet hängt an keinem Netz, also kann kein Handy bestellen.",
+                        error = true,
+                    )
+                    url != null && wifi != null -> GuestWifiSteps(wifi, url, maxQr = 340.dp, modifier = Modifier.fillMaxSize())
+                    url != null -> BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         // Black on white whatever the theme: a dark-mode code in the palette's brown doesn't scan.
                         GuestQrCode(
                             url,
                             Modifier
-                                .size(360.dp)
+                                .size(minOf(360.dp, maxWidth, maxHeight))
                                 .background(Color.White, RoundedCornerShape(16.dp))
                                 .padding(12.dp),
                         )
                     }
-                    // Chosen but not up: without this line the screen would show the one-code view and a
-                    // guest outside the house WLAN would scan a code that leads nowhere.
-                    when (val status = hotspot.status) {
-                        HotspotStatus.Starting -> Message("Der Hotspot startet …", error = false)
-                        is HotspotStatus.Failed -> Message("Kein eigener Hotspot: ${status.message}", error = true)
-                        else -> Unit
-                    }
-                    GuestUrl(url)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        if (wifi != null) {
-                            "Die drei Schritte der Reihe nach. Bleibt das Tablet in der Küche: den Bon " +
-                                "unten drucken und auf den Tisch legen — dieselben Schritte, nur auf Papier."
-                        } else {
-                            "Handy draufhalten. Bleibt das Tablet in der Küche: den Bon unten drucken und auf " +
-                                "den Tisch legen — dieselbe Adresse, nur auf Papier."
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                }
+            }
+
+            if (url != null) {
+                // Chosen but not up: without this line the screen would show the one-code view and a guest
+                // outside the house WLAN would scan a code that leads nowhere.
+                when (val status = hotspot.status) {
+                    HotspotStatus.Starting -> Note("Der Hotspot startet …")
+                    is HotspotStatus.Failed -> Note("Kein eigener Hotspot: ${status.message}", error = true)
+                    else -> Unit
+                }
+                GuestUrl(url)
+                when (printStatus) {
+                    is PrintStatus.Failed -> Note(printStatus.reason, error = true)
+                    PrintStatus.Printed -> Note("Der Bon liegt im Drucker. Auf den Tisch legen, dann findet ihn jedes Handy.")
+                    else -> Note(
+                        if (wifi != null) HOTSPOT_PHONE_HINT
+                        else "Handy draufhalten. Bleibt das Tablet in der Küche: den QR-Bon drucken und auf den Tisch legen.",
                     )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (url != null) {
                     Button(
                         onClick = { onPrintCard(url) },
                         enabled = printStatus != PrintStatus.Printing,
                         shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(56.dp),
+                        modifier = Modifier.height(52.dp),
                     ) {
                         Icon(printStatus.icon, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(printStatus.label("QR-Bon drucken"))
                     }
-                    printStatus?.let { status ->
-                        if (status is PrintStatus.Failed) {
-                            Text(
-                                status.reason,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.Center,
-                            )
-                        } else if (status == PrintStatus.Printed) {
-                            Text(
-                                "Der Bon liegt im Drucker. Auf den Tisch legen, dann findet ihn jedes Handy.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                    }
                 }
-            }
-
-            OutlinedButton(onClick = onClose, shape = RoundedCornerShape(10.dp), modifier = Modifier.height(48.dp)) {
-                Icon(Icons.Default.Close, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Schließen")
+                OutlinedButton(onClick = onClose, shape = RoundedCornerShape(10.dp), modifier = Modifier.height(52.dp)) {
+                    Icon(Icons.Default.Close, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Schließen")
+                }
             }
         }
     }
+}
+
+/** One short line under the codes; kept small so the codes keep the room. */
+@Composable
+private fun Note(text: String, error: Boolean = false) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        textAlign = TextAlign.Center,
+        color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

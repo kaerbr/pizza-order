@@ -645,8 +645,13 @@ private fun OpenOrdersSetting(limit: Int?, open: Int, onSet: (Int?) -> Unit) {
 // ─── Section building blocks ───────────────────────────────────────────────
 
 /**
- * The switch for the guest server: on/off, port, join code — and, while it runs, the guest QR code and the
+ * The switch for guest ordering: on/off, port, join code — and, while it runs, the guest QR code and the
  * button that prints the same code as a card for the table.
+ *
+ * One tap switches everything on: the server and, if that is the button chosen, the tablet's own hotspot
+ * with it. They were two switches once; nobody wants a hotspot without the server, and "which one first"
+ * was a question the admin shouldn't have to answer. The choice between the two buttons is the only one
+ * left: bring a WLAN along, or use the one that is there.
  *
  * The panel is not the only place for the code any more (see ui/GuestQrScreen.kt), but it stays here because
  * starting the server and handing out the code are one job. Only the admin sees this — the code is exactly
@@ -675,6 +680,18 @@ private fun GuestSetting(
         if (granted) onEnabled(true)
     }
 
+    var hotspotDenied by remember { mutableStateOf(false) }
+    // The hotspot choice first, the server second: the service that starts the server opens the hotspot
+    // right behind it if the choice says so (see GuestService).
+    val startWithHotspot = { onHotspot(true); onEnabled(true) }
+    val askHotspotPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        // Asked the system again instead of trusting the map: "ungefährer Standort" comes back as a yes for
+        // one of the two entries and is still not enough.
+        hotspotDenied = HotspotPermission.isMissing(context)
+        if (!hotspotDenied) startWithHotspot()
+    }
+    val hotspotFailed = hotspot.status as? HotspotStatus.Failed
+
     if (confirmNewCode) {
         DangerDialog(
             title = "Neuen Code erzeugen?",
@@ -689,19 +706,45 @@ private fun GuestSetting(
         when (val status = guest.status) {
             GuestStatus.Off -> "Aus: Gäste können nur am Tablet bestellen."
             GuestStatus.Starting -> "Startet …"
-            is GuestStatus.Running -> "Läuft auf Port ${status.port}. Gäste im selben WLAN können bestellen."
+            is GuestStatus.Running -> when (val own = hotspot.status) {
+                is HotspotStatus.Running ->
+                    "Läuft auf Port ${status.port}, mit eigenem Hotspot „${own.access.ssid}“. Gäste in diesem " +
+                        "WLAN können bestellen."
+                HotspotStatus.Starting -> "Läuft auf Port ${status.port}. Der eigene Hotspot startet …"
+                else -> "Läuft auf Port ${status.port}. Gäste im selben WLAN können bestellen."
+            }
             is GuestStatus.Failed -> status.message
         },
         style = MaterialTheme.typography.bodyLarge,
         color = if (guest.status is GuestStatus.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
     )
     Text(
-        "Der Server bleibt aus dem Internet unerreichbar: er hört nur im lokalen Netz. " +
-            "Reicht das WLAN die Geräte nicht durch (Gäste-WLAN) oder gibt es gar keins, hilft der eigene " +
-            "Hotspot weiter unten.",
+        "Mit eigenem Hotspot spannt das Tablet ein WLAN ohne Internet auf: kein Router nötig. Name und " +
+            "Passwort vergibt Android bei jedem Start neu, ein gedruckter QR-Bon gilt also nur, solange es " +
+            "läuft. Im vorhandenen WLAN müssen Handys und Tablet im selben Netz sein. Aus dem Internet ist " +
+            "die Bestellseite in keinem Fall erreichbar.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    if (hotspotFailed != null) {
+        // The server may well run: guests in a house WLAN still get through. So this is its own line with
+        // its own retry, not a reason to call the whole thing off.
+        Text(
+            "Kein eigener Hotspot: ${hotspotFailed.message}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+        if (guest.enabled) {
+            TextButton(onClick = { onHotspot(true) }) { Text("Hotspot erneut starten") }
+        }
+    } else if (hotspotDenied) {
+        Text(
+            "Ohne die Berechtigung lässt Android die App keinen Hotspot öffnen. Im vorhandenen WLAN geht es " +
+                "auch ohne sie.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
 
     if (missingPermission) {
         // Android 17 blocks LAN traffic — inbound included — until this is granted, and it does so silently:
@@ -737,20 +780,33 @@ private fun GuestSetting(
         ) { Text("Setzen") }
     }
 
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(
-            onClick = { onEnabled(!guest.enabled) },
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.weight(1f).height(56.dp),
-        ) { Text(if (guest.enabled) "Server ausschalten" else "Server einschalten") }
-        if (guest.enabled) {
+    if (guest.enabled) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                // Takes the hotspot down with the server; GuestService does that on its way out.
+                onClick = { onEnabled(false) },
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.weight(1f).height(56.dp),
+            ) { Text("Ausschalten") }
             OutlinedButton(onClick = { confirmNewCode = true }, shape = RoundedCornerShape(10.dp), modifier = Modifier.height(56.dp)) {
                 Text("Neuer Code")
             }
         }
+    } else {
+        Button(
+            onClick = {
+                if (HotspotPermission.isMissing(context)) askHotspotPermission.launch(HotspotPermission.names)
+                else startWithHotspot()
+            },
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+        ) { Text("Einschalten mit eigenem Hotspot") }
+        OutlinedButton(
+            onClick = { onHotspot(false); onEnabled(true) },
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+        ) { Text("Einschalten im vorhandenen WLAN") }
     }
-
-    HotspotSetting(hotspot, serverOn = guest.enabled, onHotspot = onHotspot)
 
     if (guest.enabled) {
         // Nothing secret is on this screen that a guest standing at the tablet couldn't read anyway; the code's
@@ -766,7 +822,7 @@ private fun GuestSetting(
             // The server may well be "läuft" either way: it binds 0.0.0.0, which is no WLAN at all.
             ip == null -> Text(
                 "Kein WLAN und kein Hotspot. Das Tablet hängt an keinem Netz, das ein Handy erreichen kann " +
-                    "— Mobilfunk zählt nicht. WLAN verbinden oder oben den eigenen Hotspot einschalten.",
+                    "— Mobilfunk zählt nicht. WLAN verbinden, oder ausschalten und mit eigenem Hotspot einschalten.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -776,7 +832,7 @@ private fun GuestSetting(
                 // picks up a changed address while it is open.
                 if (wifi != null) {
                     // Three steps while the tablet's own hotspot runs: into the WLAN, mobile data off, order page.
-                    GuestWifiSteps(wifi, url, qrSize = 220.dp)
+                    GuestWifiSteps(wifi, url, maxQr = 220.dp)
                 } else {
                     GuestQrCode(url, Modifier.size(220.dp).background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp))
                 }
@@ -801,75 +857,12 @@ private fun GuestSetting(
                         "Gäste scannen den WLAN-QR-Code, schalten die mobilen Daten aus und scannen dann den Gäste-QR-Code. $HOTSPOT_PHONE_HINT"
                     } else {
                         "Gäste scannen den Code. Findet ein Handy die Seite nicht, obwohl das WLAN passt, " +
-                            "sperrt das Gäste-WLAN die Geräte gegenseitig — dann oben den eigenen Hotspot einschalten."
+                            "sperrt das Gäste-WLAN die Geräte gegenseitig — dann ausschalten und mit eigenem Hotspot einschalten."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
-    }
-}
-
-/**
- * The tablet's own WLAN for the guests: one button, and a line that says where it stands.
- *
- * Separate from the server's switch because it is a separate decision — in a house WLAN that lets phones
- * reach the tablet, nobody wants a second network. It only comes up while the server runs.
- */
-@Composable
-private fun HotspotSetting(hotspot: HotspotRuntime, serverOn: Boolean, onHotspot: (Boolean) -> Unit) {
-    val context = LocalContext.current
-    var denied by remember { mutableStateOf(false) }
-    val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        // Asked the system again instead of trusting the map: "ungefährer Standort" comes back as a yes for
-        // one of the two entries and is still not enough.
-        denied = HotspotPermission.isMissing(context)
-        if (!denied) onHotspot(true)
-    }
-    val failed = hotspot.status as? HotspotStatus.Failed
-    val switchOn = {
-        if (HotspotPermission.isMissing(context)) askPermission.launch(HotspotPermission.names) else onHotspot(true)
-    }
-
-    Text("Eigener Hotspot", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-    Text(
-        when (val status = hotspot.status) {
-            is HotspotStatus.Failed -> status.message
-            HotspotStatus.Starting -> "Hotspot startet …"
-            is HotspotStatus.Running ->
-                "Läuft als „${status.access.ssid}“. Name und Passwort vergibt Android bei jedem Start neu — " +
-                    "ein gedruckter Bon gilt, solange dieser Hotspot läuft."
-            HotspotStatus.Off -> when {
-                denied -> "Ohne die Berechtigung lässt Android die App keinen Hotspot öffnen."
-                hotspot.enabled && !serverOn -> "Gewählt: startet zusammen mit dem Server."
-                hotspot.enabled -> "Gewählt, läuft aber nicht."
-                else ->
-                    "Aus. Eingeschaltet spannt das Tablet ein eigenes WLAN ohne Internet auf: kein Router nötig, " +
-                        "die Gäste scannen den WLAN-QR-Code, schalten die mobilen Daten aus und scannen dann den Gäste-QR-Code."
-            }
-        },
-        style = MaterialTheme.typography.bodyMedium,
-        color = if (failed != null || denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(
-            // A failed start keeps the admin's choice, so the button retries instead of offering to switch
-            // off something that isn't running; "Ausschalten" sits beside it.
-            onClick = { if (hotspot.enabled && failed == null) onHotspot(false) else switchOn() },
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.weight(1f).height(56.dp),
-        ) {
-            Text(
-                when {
-                    failed != null && hotspot.enabled -> "Hotspot erneut starten"
-                    hotspot.enabled -> "Eigenen Hotspot ausschalten"
-                    else -> "Eigenen Hotspot einschalten"
-                },
-            )
-        }
-        if (failed != null && hotspot.enabled) {
-            TextButton(onClick = { onHotspot(false) }, modifier = Modifier.height(56.dp)) { Text("Ausschalten") }
         }
     }
 }

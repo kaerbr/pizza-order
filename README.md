@@ -93,7 +93,7 @@ Das Tablet sieht weiterhin alles: jede Gast-Bestellung landet in der normalen Be
 
 ### 📡 Ohne WLAN: der eigene Hotspot
 
-Im Admin-Panel unter „Gäste-Bestellung“ **„Eigenen Hotspot einschalten“**. Solange der Gäste-Server läuft, spannt das Tablet dann ein eigenes WLAN ohne Internet auf; ein Router oder ein fremdes Netz ist nicht nötig. Android fragt dafür einmalig nach **„Geräte in der Nähe“** (bis Android 12 nach dem genauen Standort, der dann auch eingeschaltet sein muss).
+Im Admin-Panel unter „Gäste-Bestellung“ **„Einschalten mit eigenem Hotspot“**: ein Knopf startet Gäste-Server und Hotspot zusammen, **„Ausschalten“** beendet beide. Solange der Gäste-Server läuft, spannt das Tablet ein eigenes WLAN ohne Internet auf; ein Router oder ein fremdes Netz ist nicht nötig. Android fragt dafür einmalig nach **„Geräte in der Nähe“** (bis Android 12 nach dem genauen Standort, der dann auch eingeschaltet sein muss).
 
 Für die Gäste sind es drei Schritte, am Tablet nebeneinander und auf dem QR-Bon untereinander:
 
@@ -130,7 +130,7 @@ Im Admin-Panel kannst du:
 - begrenzen, wie viele **offene Bestellungen** es gleichzeitig geben darf (ohne Eintrag kein Limit); ist das Limit erreicht, sagt die App ab, statt die Küche zu überfüllen
 - den **Bildschirm fixieren**, damit Home und Zurück gesperrt sind (gegen gezieltes Lösen hilft die PIN-Abfrage in den Android-Einstellungen)
 - das **Ausdruck-Design** wählen und einen **Testdruck** auslösen
-- den **Gäste-Server** ein- und ausschalten (Standard: aus), den Port setzen und den Code neu erzeugen; derselbe Abschnitt zeigt den QR-Code für Gäste und druckt den **QR-Bon für den Tisch**; dort lässt sich auch der **eigene Hotspot** einschalten. Ab Android 17 fragt das System einmalig nach der Berechtigung für lokale Netzwerke; ohne sie startet der Server nicht und der Abschnitt nennt den Grund
+- den **Gäste-Server** ein- und ausschalten (Standard: aus), den Port setzen und den Code neu erzeugen; derselbe Abschnitt zeigt den QR-Code für Gäste und druckt den **QR-Bon für den Tisch**; eingeschaltet wird mit einem Knopf, wahlweise **mit eigenem Hotspot** oder im vorhandenen WLAN. Ab Android 17 fragt das System einmalig nach der Berechtigung für lokale Netzwerke; ohne sie startet der Server nicht und der Abschnitt nennt den Grund
 - **QR-Links zum Bon** pflegen (die Codes auf dem Küchenbon, nicht der Gäste-Zugang)
 - **alle Bestellungen löschen**, z. B. vor dem nächsten Abend (der Teig-Zähler startet dabei wieder bei der Anzahl für heute, und „aus“ markierte Zutaten sind wieder da)
 - **alles zurücksetzen**: Bestellungen, Menü, Teig, QR-Links und Ausdruck-Design wie nach der Installation

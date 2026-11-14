@@ -161,7 +161,9 @@ internal fun GuestQrCode(url: String, modifier: Modifier = Modifier, description
 
 /**
  * What a guest does while the tablet's own hotspot runs, in order: into the WLAN, mobile data off, order
- * page. Side by side where the screen is wide enough, stacked where it is not.
+ * page. Side by side or stacked, whichever leaves the codes bigger in the space there is.
+ *
+ * @param maxQr the largest a code gets; it shrinks to fit the width and, where the height is limited, that.
  *
  * The middle step has no code and is the one that decides whether the last one works: the hotspot has no
  * internet, so a phone with mobile data on sends the request for the order page into the mobile network.
@@ -172,22 +174,30 @@ internal fun GuestQrCode(url: String, modifier: Modifier = Modifier, description
  * place a guest with a stubborn camera can read them.
  */
 @Composable
-internal fun GuestWifiSteps(wifi: WifiAccess, url: String, qrSize: Dp, modifier: Modifier = Modifier) {
+internal fun GuestWifiSteps(wifi: WifiAccess, url: String, maxQr: Dp, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        if (maxWidth >= qrSize * 2 + DataStepWidth + StepGap * 2) {
+        // The codes take what the place leaves them: on the guest screen that is the height between the title
+        // and the buttons, so nothing has to scroll; in the admin panel, which scrolls anyway, only the width.
+        val height = if (constraints.hasBoundedHeight) maxHeight else Dp.Infinity
+        val beside = minOf(maxQr, (maxWidth - DataStepWidth - StepGap * 2) / 2, height - StepChrome)
+        val stacked = minOf(maxQr, maxWidth, (height - StepChrome * 2 - DataStepHeight - StepGap * 2) / 2)
+        // Whichever arrangement gives the bigger code: a scanner cares about size, not about layout.
+        if (beside >= stacked) {
+            val qr = beside.coerceAtLeast(MinQr)
             Row(horizontalArrangement = Arrangement.spacedBy(StepGap), verticalAlignment = Alignment.Top) {
-                WifiStep(wifi, qrSize)
-                DataStep(DataStepWidth)
-                OrderStep(url, qrSize)
+                WifiStep(wifi, qr)
+                DataStep(Modifier.width(DataStepWidth))
+                OrderStep(url, qr)
             }
         } else {
+            val qr = stacked.coerceAtLeast(MinQr)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(StepGap),
             ) {
-                WifiStep(wifi, qrSize)
-                DataStep(qrSize)
-                OrderStep(url, qrSize)
+                WifiStep(wifi, qr)
+                DataStep(Modifier.fillMaxWidth())
+                OrderStep(url, qr)
             }
         }
     }
@@ -196,10 +206,19 @@ internal fun GuestWifiSteps(wifi: WifiAccess, url: String, qrSize: Dp, modifier:
 private val StepGap = 16.dp
 private val DataStepWidth = 140.dp
 
+/** Roughly what the middle step needs when it spans the width: a title and two lines. */
+private val DataStepHeight = 84.dp
+
+/** Roughly what a step needs besides its code: the title above, two lines of type below. */
+private val StepChrome = 100.dp
+
+/** Below this a phone stops finding the code; rather let the place overflow than shrink further. */
+private val MinQr = 132.dp
+
 @Composable
-private fun DataStep(width: Dp) {
+private fun DataStep(modifier: Modifier) {
     Column(
-        Modifier.width(width),
+        modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -210,8 +229,7 @@ private fun DataStep(width: Dp) {
             textAlign = TextAlign.Center,
         )
         Text(
-            "Das WLAN hat kein Internet. Mit mobilen Daten sucht das Handy die Bestellseite im Mobilfunk " +
-                "und findet sie nicht.",
+            "Sonst sucht das Handy die Bestellseite im Mobilfunk statt in diesem WLAN.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -243,7 +261,7 @@ private fun WifiStep(wifi: WifiAccess, qrSize: Dp) {
 private fun OrderStep(url: String, qrSize: Dp) {
     GuestStep(title = "3. Pizza bestellen", content = url, description = "QR-Code für $url", qrSize = qrSize) {
         Text(
-            "Erst scannen, wenn das Handy im WLAN ist und die mobilen Daten aus sind.",
+            "Erst nach Schritt 1 und 2 scannen.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
