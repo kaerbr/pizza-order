@@ -160,9 +160,10 @@ class OrderServiceTest {
 
         val placed = service.submit("  Anna  ", pizza(), "  ohne Oregano ").placed()
         awaitPrints(1)
-        // The markup is recorded inside print(); the bookkeeping save comes right after it.
+        // The markup is recorded inside print(); the bookkeeping comes right after it, the state first and
+        // the file second. Waiting for the state alone reads the file a moment too early on a slow disk.
         withTimeout(5_000) {
-            while (service.state.value.orders.single().printed.not()) delay(10)
+            while (service.state.value.orders.single().printed.not() || orders().single().printed.not()) delay(10)
         }
         val order = placed.order
 
